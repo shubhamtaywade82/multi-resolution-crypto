@@ -4,6 +4,8 @@
   "description": "Multi-Resolution Liquidity Cockpit with real Binance mainnet feeds",
   "type": "module",
   "scripts": {
+    "dev": "node scripts/dev.js",
+    "start": "node scripts/dev.js",
     "server": "tsx server/server.ts",
     "ui:dev": "npm --prefix ui run dev",
     "ui:build": "npm --prefix ui run build",
