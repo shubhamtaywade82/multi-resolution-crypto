@@ -69,16 +69,22 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:99;
 
 /* ladder */
 .lad{font-size:10.5px}
-.lr{display:flex;align-items:center;position:relative;height:15px}
-.lr .bar{position:absolute;top:1px;bottom:1px;opacity:.2}
+.lr{display:flex;align-items:center;position:relative;height:15px;transition:background .2s ease}
+.lr .bar{position:absolute;top:1px;bottom:1px;opacity:.25;transition:width .22s cubic-bezier(0.16,1,0.3,1)}
 .lr.b .bar{right:0;background:var(--g)}.lr.a .bar{left:0;background:var(--r)}
 .lr .pp{width:60px;text-align:right;padding-right:6px;position:relative;z-index:1;font-weight:700}
 .lr.a .pp{text-align:left;padding-left:6px}
-.lr .qq{flex:1;text-align:right;padding-right:5px;position:relative;z-index:1;color:var(--fg2)}
+.lr .qq{flex:1;text-align:right;padding-right:5px;position:relative;z-index:1;color:var(--fg2);transition:color .2s ease}
 .lr.a .qq{text-align:left;padding-left:5px}
 .lr .wm{width:26px;text-align:center;position:relative;z-index:1;color:var(--p);font-size:8.5px;letter-spacing:-1px}
 .lsep{display:flex;justify-content:space-between;padding:3px 4px;background:var(--cell);
-  border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);font-size:10px;color:var(--a)}
+  border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);font-size:10px;color:var(--a);transition:background .2s ease}
+
+/* tick animations */
+@keyframes flashG{0%{background:rgba(63,224,140,.32)}100%{background:transparent}}
+@keyframes flashR{0%{background:rgba(255,93,120,.32)}100%{background:transparent}}
+.flash-up{animation:flashG .35s ease-out}
+.flash-down{animation:flashR .35s ease-out}
 
 /* tape */
 .tape{font-size:10px;max-height:150px;overflow:hidden}
@@ -140,7 +146,7 @@ table.mx td .sg2{display:inline-block;width:12px;text-align:center}
 .pts .pm{font-size:9px;color:var(--mute)}
 .pbar{height:22px;background:#080c11;border:1px solid var(--bd);position:relative;margin:5px 0 3px;overflow:hidden}
 .pbar .zn{position:absolute;top:0;bottom:0;opacity:.15}
-.pbar .mk{position:absolute;top:0;bottom:0;width:2px;background:var(--w);transition:left .5s ease}
+.pbar .mk{position:absolute;top:0;bottom:0;width:3px;background:var(--w);box-shadow:0 0 8px #fff;transition:left .35s cubic-bezier(0.16,1,0.3,1)}
 .pbar .th{position:absolute;top:0;bottom:0;width:1px;background:var(--hot)}
 .pbar .lb{position:absolute;font-size:8px;color:var(--fg2)}
 .cp{display:flex;justify-content:space-between;gap:8px;font-size:10px;padding:2px 0;border-bottom:1px dotted #151e28}
@@ -1226,7 +1232,10 @@ function renderTop(){
 function renderL1(){
   const now=SIM.now,imb=bookImb(IMB_LV),i1=bookImb(1);
   const sprd=BOOK.ba-BOOK.bb,sb=BOOK.mid?sprd/BOOK.mid*10000:0;
-  $('mid').textContent=BOOK.mid.toFixed(3);
+  const mEl=$('mid'),prevMid=parseFloat(mEl.textContent)||BOOK.mid;
+  mEl.textContent=BOOK.mid.toFixed(3);
+  if(BOOK.mid>prevMid){mEl.classList.remove('flash-up','flash-down');void mEl.offsetWidth;mEl.classList.add('flash-up');}
+  else if(BOOK.mid<prevMid){mEl.classList.remove('flash-up','flash-down');void mEl.offsetWidth;mEl.classList.add('flash-down');}
   $('sprd').textContent=sprd.toFixed(2);$('sprdb').textContent=sb.toFixed(2)+' bps';
   $('bbo').innerHTML=`<span class="g">${BOOK.bb.toFixed(2)}</span><span class="m">/</span><span class="r">${BOOK.ba.toFixed(2)}</span>`;
   const set=(id,v,c)=>{const e=$(id);e.textContent=sgn(v)+Math.abs(v).toFixed(3);e.className='vv '+c;};
