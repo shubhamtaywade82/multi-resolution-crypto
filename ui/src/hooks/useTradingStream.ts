@@ -50,12 +50,25 @@ export function useTradingStream(): StreamState {
     let isMounted = true;
     let reconnectTimeout: ReturnType<typeof setTimeout>;
 
+    const safeClose = (socket: WebSocket | null) => {
+      if (!socket) return;
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onclose = null;
+      socket.onerror = null;
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.close(1000, 'Normal Closure');
+      } else if (socket.readyState === WebSocket.CONNECTING) {
+        // Prevent browser handshake abort error by closing only after handshake completes
+        socket.onopen = () => { socket.close(1000, 'Closed after abort'); };
+      }
+    };
+
     const loadBootstrap = async () => {
       try {
         const res = await fetch(`${SERVER_HTTP}/api/bootstrap`);
-        if (!res.ok) return;
+        if (!res.ok || !isMounted) return;
         const data: BootstrapPayload = await res.json();
-        if (!isMounted) return;
 
         setState((prev) => ({
           ...prev,
@@ -69,34 +82,39 @@ export function useTradingStream(): StreamState {
           absorption: data.absorption
         }));
       } catch {
-        // Failed bootstrap will be resolved when websocket connects
+        // Failed bootstrap will resolve on first websocket broadcast
       }
     };
 
     loadBootstrap();
 
     const connectWs = () => {
+      if (!isMounted) return;
+      safeClose(ws);
       ws = new WebSocket(SERVER_WS);
 
       ws.onopen = () => {
-        if (!isMounted) return;
+        if (!isMounted) { safeClose(ws); return; }
         setState((prev) => ({ ...prev, isConnected: true }));
       };
 
       ws.onmessage = (event) => {
         if (!isMounted) return;
-        const msg = JSON.parse(event.data);
-        handleMessage(msg, setState, tradesRef);
+        try {
+          const msg = JSON.parse(event.data);
+          handleMessage(msg, setState, tradesRef);
+        } catch {}
       };
 
       ws.onclose = () => {
         if (!isMounted) return;
         setState((prev) => ({ ...prev, isConnected: false, isSynced: false }));
+        clearTimeout(reconnectTimeout);
         reconnectTimeout = setTimeout(connectWs, 2000);
       };
 
       ws.onerror = () => {
-        ws?.close();
+        // Handled by browser onclose transition
       };
     };
 
@@ -105,7 +123,7 @@ export function useTradingStream(): StreamState {
     return () => {
       isMounted = false;
       clearTimeout(reconnectTimeout);
-      ws?.close();
+      safeClose(ws);
     };
   }, []);
 
