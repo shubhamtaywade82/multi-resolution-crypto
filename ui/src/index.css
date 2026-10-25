@@ -70,6 +70,35 @@ th, td { padding: 4px 8px; text-align: right; white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 th { font-size: 10px; color: var(--muted); border-bottom: 1px solid var(--border-sub); text-transform: uppercase; }
 
+/* Studio & Responsive Layouts */
+.studio-grid {
+  display: grid;
+  grid-template-columns: 310px minmax(480px, 1fr) 390px;
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+}
+@media (max-width: 1280px) { .studio-grid { grid-template-columns: 310px 1fr; } }
+@media (max-width: 860px) { .studio-grid { grid-template-columns: 1fr; } }
+
+.studio-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+/* Dock Tray at Bottom of Cockpit */
+.dock-tray {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; margin-top: 4px;
+}
+.dock-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 8px; background: var(--card-sub); border-bottom: 1px solid var(--border); font-size: 10px;
+}
+.dock-tab-btn {
+  background: transparent; border: 0; color: var(--muted); font-family: inherit;
+  font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 3px; cursor: pointer;
+}
+.dock-tab-btn.active { background: var(--card); color: var(--c); font-weight: 700; border: 1px solid var(--border); }
+.dock-body { padding: 8px; max-height: 320px; overflow-y: auto; }
+
 /* 2D Raster Liquidity Density Heatmap & Vector Overlay */
 .hm { position: relative; height: 330px; background: #04060a; border: 1px solid var(--border); overflow: hidden; border-radius: 3px; }
 .heat-canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }

@@ -17,6 +17,7 @@ export const Footer: React.FC = () => {
     }}>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
         <span>SHORTCUTS:</span>
+        <span><kbd style={kbdStyle}>v</kbd> view mode</span>
         <span><kbd style={kbdStyle}>1</kbd> <kbd style={kbdStyle}>2</kbd> <kbd style={kbdStyle}>3</kbd> heat view</span>
         <span><kbd style={kbdStyle}>t</kbd> trade tape</span>
         <span><kbd style={kbdStyle}>s</kbd> smoothing</span>
