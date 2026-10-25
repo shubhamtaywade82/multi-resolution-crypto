@@ -10,6 +10,16 @@ interface Level {
   q: number;
 }
 
+interface SeedCandle {
+  t: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
+  tbv: number;
+}
+
 interface NormalizedBook {
   bids: Level[];
   asks: Level[];
@@ -34,9 +44,11 @@ class BinanceBridge {
   private isSynced = false;
   private isResyncing = false;
   private buffer: any[] = [];
+  private cachedCandles: Record<string, SeedCandle[]> | null = null;
 
   constructor() {
     this.setupServer();
+    this.loadCandles();
     this.setupBinance();
   }
 
@@ -44,9 +56,56 @@ class BinanceBridge {
     this.wss.on('connection', (ws) => {
       this.clients.add(ws);
       ws.send(JSON.stringify({ type: 'handshake', symbol: SYMBOL, serverTime: Date.now() }));
+      if (this.cachedCandles) {
+        ws.send(JSON.stringify({ type: 'seed_candles', symbol: SYMBOL, candles: this.cachedCandles }));
+      }
       ws.on('close', () => this.clients.delete(ws));
     });
     console.log(`[Bridge] WebSocket server active on ws://localhost:${PORT}`);
+  }
+
+  private async loadCandles(): Promise<void> {
+    try {
+      this.cachedCandles = await this.fetchHistoricalCandles();
+      console.log('[Bridge] Seed candles loaded from Binance (1m/3m/5m/15m/1h/4h)');
+      for (const ws of this.clients) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'seed_candles', symbol: SYMBOL, candles: this.cachedCandles }));
+        }
+      }
+    } catch (err: any) {
+      console.error(`[Bridge] Failed to load historical candles: ${err.message}`);
+    }
+  }
+
+  private async fetchHistoricalCandles(): Promise<Record<string, SeedCandle[]>> {
+    const mapK = (k: any): SeedCandle => ({
+      t: k.openTime,
+      o: k.open,
+      h: k.high,
+      l: k.low,
+      c: k.close,
+      v: k.volume,
+      tbv: k.takerBuyBaseVolume ?? k.volume * 0.5,
+    });
+
+    const [m1, m3, m5, m15, h1, h4] = await Promise.all([
+      this.client.futures.market.klines(SYMBOL, '1m', { limit: 180 }),
+      this.client.futures.market.klines(SYMBOL, '3m', { limit: 120 }),
+      this.client.futures.market.klines(SYMBOL, '5m', { limit: 120 }),
+      this.client.futures.market.klines(SYMBOL, '15m', { limit: 96 }),
+      this.client.futures.market.klines(SYMBOL, '1h', { limit: 72 }),
+      this.client.futures.market.klines(SYMBOL, '4h', { limit: 40 }),
+    ]);
+
+    return {
+      m1: m1.map(mapK),
+      m3: m3.map(mapK),
+      m5: m5.map(mapK),
+      m15: m15.map(mapK),
+      h1: h1.map(mapK),
+      h4: h4.map(mapK),
+    };
   }
 
   private broadcast(payload: Record<string, unknown>): void {
@@ -74,7 +133,6 @@ class BinanceBridge {
     });
     this.client.futures.wsPublic.subscribe([`${sym}@bookTicker`, `${sym}@depth@100ms`]);
 
-    // Allow socket connection to establish before seeding snapshot
     setTimeout(() => this.resync(), 800);
   }
 
@@ -169,7 +227,6 @@ class BinanceBridge {
       const startIdx = this.findBridgingEvent(snapSeq);
 
       if (startIdx === -1) {
-        // Buffer was empty or missed snapshot overlap; retry with fresh buffer
         setTimeout(() => { this.isResyncing = false; this.resync(); }, 300);
         return;
       }

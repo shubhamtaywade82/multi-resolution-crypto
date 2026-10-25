@@ -644,6 +644,16 @@ class AbsorptionDetector{
 }
 class CandleBuilder{
   constructor(ms,keep,label){this.ms=ms;this.keep=keep;this.label=label;this.cur=null;this.closed=[];this.onClose=null;}
+  seed(candles){
+    this.closed=[];
+    for(let i=0;i<candles.length-1;i++){
+      const c=candles[i],k=Math.floor(c.t/this.ms);
+      this.closed.push({k,t:c.t,o:c.o,h:c.h,l:c.l,c:c.c,closed:true});
+    }
+    if(this.closed.length>this.keep)this.closed.splice(0,this.closed.length-this.keep);
+    const last=candles[candles.length-1];
+    if(last){const k=Math.floor(last.t/this.ms);this.cur={k,t:last.t,o:last.o,h:last.h,l:last.l,c:last.c};}
+  }
   onPrice(t,p){
     const k=Math.floor(t/this.ms);
     if(!this.cur||this.cur.k!==k){
@@ -837,18 +847,37 @@ const BinanceWS={
   },
   routeMessage(m){
     if(m.type==='trade'){
-      SIM.now=m.timestamp;BOOK.mid=m.price;
+      SIM.now=Math.max(SIM.now,m.timestamp);BOOK.mid=m.price;
+      for(const cb of ALLC)cb.onPrice(m.timestamp,m.price);
       Adapter.onTrade(m);
     }else if(m.type==='bookTicker'){
+      SIM.now=Math.max(SIM.now,m.timestamp);
       Adapter.onBookTicker({bb:m.bb,ba:m.ba,bids:[{p:m.bb,q:m.bestBidQty}],asks:[{p:m.ba,q:m.bestAskQty}],seq:BOOK.seq,ts:m.timestamp},m.timestamp);
     }else if(m.type==='depth'){
       const b=m.book;
+      SIM.now=Math.max(SIM.now,b.ts);
       BOOK.bids=b.bids;BOOK.asks=b.asks;BOOK.bb=b.bb;BOOK.ba=b.ba;BOOK.mid=b.mid;
       BOOK.seq=b.seq;BOOK.ts=b.ts;BOOK.gaps=b.gaps;
       Adapter.onDepth(BOOK,b.ts);
     }else if(m.type==='kline'){
+      SIM.now=Math.max(SIM.now,m.timestamp);
       for(const cb of ALLC)cb.onPrice(m.timestamp,m.close);
       Adapter.onKline(m.timestamp,m.close);
+    }else if(m.type==='seed_candles'&&m.candles){
+      if(m.candles.m1)C.m1.seed(m.candles.m1);
+      if(m.candles.m3)C.m3.seed(m.candles.m3);
+      if(m.candles.m5)C.m5.seed(m.candles.m5);
+      if(m.candles.m15)C.m15.seed(m.candles.m15);
+      if(m.candles.h1)C.h1.seed(m.candles.h1);
+      if(m.candles.h4)C.h4.seed(m.candles.h4);
+      if(m.candles.m1){
+        for(const c of m.candles.m1){
+          const buy=c.tbv,sell=Math.max(0,c.v-c.tbv);
+          buckets.add(c.t,c.c,c.v,buy-sell);
+        }
+      }
+      renderStructure();Signal.eval(SIM.now);renderSignal();
+      Log.push('struct','● Seeded 100% REAL Binance candles: 1m/3m/5m/15m/1h/4h · structure synced');
     }
   },
   updateProvenance(isReal){
