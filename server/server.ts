@@ -9,6 +9,13 @@ import { analyzeStructure } from './structure.js';
 import { AiService } from './ai-service.js';
 import { BootstrapPayload, Trade, StructureAnalysis } from './types.js';
 
+process.on('uncaughtException', (err) => {
+  console.error('[Engine] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Engine] Unhandled Rejection:', reason);
+});
+
 const SYMBOL = 'SOLUSDT';
 const PORT = 8765;
 const MAX_QUEUE_SIZE = 100;
@@ -83,29 +90,35 @@ export class TradingEngineServer {
 
   private async handleAi(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     res.setHeader('Content-Type', 'application/json');
-    if (req.url === '/api/ai/models') {
-      res.end(JSON.stringify({ models: this.ai.getModels() }));
-      return;
+    try {
+      if (req.url === '/api/ai/models') {
+        res.end(JSON.stringify({ models: this.ai.getModels() }));
+        return;
+      }
+      const body = await readBody(req);
+      const ctx = this.getBootstrapPayload();
+      if (req.url === '/api/ai/analyze') {
+        const result = await this.ai.analyzeMarket(ctx, body.model);
+        res.end(JSON.stringify(result));
+        return;
+      }
+      if (req.url === '/api/ai/event') {
+        const ev = body.event || { type: 'REGIME_CHANGE', summary: 'Regime shift detected', triggerTime: Date.now() };
+        const result = await this.ai.analyzeEvent(ctx, ev, body.model);
+        res.end(JSON.stringify(result));
+        return;
+      }
+      if (req.url === '/api/ai/ask') {
+        const result = await this.ai.askQuestion(ctx, body.question || 'Summarize current edge', body.model);
+        res.end(JSON.stringify(result));
+        return;
+      }
+      res.writeHead(404); res.end('{"error":"not found"}');
+    } catch (err: any) {
+      console.warn(`[Engine] AI endpoint error: ${err?.message || err}`);
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: err?.message || 'AI request failed' }));
     }
-    const body = await readBody(req);
-    const ctx = this.getBootstrapPayload();
-    if (req.url === '/api/ai/analyze') {
-      const result = await this.ai.analyzeMarket(ctx, body.model);
-      res.end(JSON.stringify(result));
-      return;
-    }
-    if (req.url === '/api/ai/event') {
-      const ev = body.event || { type: 'REGIME_CHANGE', summary: 'Regime shift detected', triggerTime: Date.now() };
-      const result = await this.ai.analyzeEvent(ctx, ev, body.model);
-      res.end(JSON.stringify(result));
-      return;
-    }
-    if (req.url === '/api/ai/ask') {
-      const result = await this.ai.askQuestion(ctx, body.question || 'Summarize current edge', body.model);
-      res.end(JSON.stringify(result));
-      return;
-    }
-    res.writeHead(404); res.end('{"error":"not found"}');
   }
 
   private setupWs(): void {
@@ -151,8 +164,11 @@ export class TradingEngineServer {
     this.book.setResyncing(true);
     try {
       const snap = await this.gateway.fetchSnapshot();
-      if (!this.book.applySnapshot(snap)) setTimeout(() => this.resync(), 300);
-    } catch {
+      if (!this.book.applySnapshot(snap)) {
+        setTimeout(() => this.resync(), 400);
+      }
+    } catch (err: any) {
+      console.warn(`[Engine] Snapshot fetch error: ${err?.message || err}`);
       setTimeout(() => this.resync(), 1000);
     }
   }
@@ -196,9 +212,10 @@ export class TradingEngineServer {
 
   private startBroadcastLoops(): void {
     setInterval(() => {
-      if (!this.book.isSynced || this.clients.size === 0) return;
+      if (this.clients.size === 0) return;
       const now = Date.now();
       const book = this.book.getState(now, 30);
+      if (book.mid === 0) return;
       if (book.imbalance) {
         book.imbalance.m5 = this.flow.tob.imbMean(now - 5000, now);
         book.imbalance.m30 = this.flow.tob.imbMean(now - 30000, now);
@@ -209,8 +226,9 @@ export class TradingEngineServer {
     }, 100);
 
     setInterval(() => {
-      if (!this.book.isSynced || this.clients.size === 0) return;
+      if (this.clients.size === 0) return;
       const p = this.getBootstrapPayload();
+      if (p.book.mid === 0) return;
       this.broadcast({
         type: 'cadence', ts: p.serverTime, structure: p.structure,
         matrix: p.matrix, signal: p.signal, absorption: p.absorption

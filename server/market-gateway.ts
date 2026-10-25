@@ -55,6 +55,9 @@ export class MarketGateway {
     const sym = this.symbol.toLowerCase();
 
     // Binance USD-M split URL routing: trades and klines on /market
+    this.client.futures.ws.on('error', (err: any) => {
+      console.warn(`[Gateway] WS market stream warning: ${err?.message || err}`);
+    });
     this.client.futures.ws.on('message', (stream: string, payload: any) => {
       if (stream.includes('aggTrade')) this.handleAggTrade(payload);
       else if (stream.includes('kline')) this.handlers.onKline(payload);
@@ -62,6 +65,9 @@ export class MarketGateway {
     this.client.futures.ws.subscribe([`${sym}@aggTrade`, `${sym}@kline_1m`]);
 
     // bookTicker and 100ms depth diffs on /public
+    this.client.futures.wsPublic.on('error', (err: any) => {
+      console.warn(`[Gateway] WS public stream warning: ${err?.message || err}`);
+    });
     this.client.futures.wsPublic.on('message', (stream: string, payload: any) => {
       if (stream.includes('bookTicker')) this.handleBookTicker(payload);
       else if (stream.includes('depth')) this.handlers.onDepthDiff(payload);

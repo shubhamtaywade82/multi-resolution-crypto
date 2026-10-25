@@ -71,21 +71,28 @@ export class AiService {
     return { model: available[0] || this.defaultModel, role: 'General Reasoner' };
   }
 
+  // Gracefully handles timeouts or model initialization latency
+  private async safeChat(model: string, messages: any[]): Promise<string> {
+    try {
+      return await this.client.chatText({ model, messages });
+    } catch (err: any) {
+      console.warn(`[AiService] Chat inference deferred on ${model}: ${err.message}`);
+      return `⚠️ **Inference Advisory**: Local model ${model} timed out (${err.message || 'busy'}). Retrying on next regime event.`;
+    }
+  }
+
   public async analyzeMarket(ctx: MarketContext, modelParam?: string): Promise<AiResponse> {
     const isAuto = !modelParam || modelParam === 'auto';
     const target = isAuto ? this.resolveSpecialist('market flow analysis') : { model: modelParam, role: 'Manual Selected' };
     const prompt = this.formatContextPrompt(ctx);
 
-    const text = await this.client.chatText({
-      model: target.model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an institutional crypto order flow and SMC market structure analyst. Provide direct, concise, factual analysis based strictly on the provided market data. Highlight order flow divergence, wall persistence, absorption, and setup validity.'
-        },
-        { role: 'user', content: prompt }
-      ]
-    });
+    const text = await this.safeChat(target.model, [
+      {
+        role: 'system',
+        content: 'You are an institutional crypto order flow and SMC market structure analyst. Provide direct, concise, factual analysis based strictly on the provided market data. Highlight order flow divergence, wall persistence, absorption, and setup validity.'
+      },
+      { role: 'user', content: prompt }
+    ]);
     return { text, modelUsed: target.model, role: target.role };
   }
 
@@ -105,16 +112,13 @@ export class AiService {
       this.formatContextPrompt(ctx)
     ].join('\n');
 
-    const text = await this.client.chatText({
-      model: target.model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an institutional algorithmic trading copilot. A critical market event or regime shift just triggered. Provide an immediate, concise, data-driven event briefing. Analyze: (1) Event significance & structural impact, (2) Order flow validation or divergence, (3) Tactical guidance or risk invalidation.'
-        },
-        { role: 'user', content: prompt }
-      ]
-    });
+    const text = await this.safeChat(target.model, [
+      {
+        role: 'system',
+        content: 'You are an institutional algorithmic trading copilot. A critical market event or regime shift just triggered. Provide an immediate, concise, data-driven event briefing. Analyze: (1) Event significance & structural impact, (2) Order flow validation or divergence, (3) Tactical guidance or risk invalidation.'
+      },
+      { role: 'user', content: prompt }
+    ]);
     return { text, modelUsed: target.model, role: target.role };
   }
 
@@ -123,19 +127,16 @@ export class AiService {
     const target = isAuto ? this.resolveSpecialist(question) : { model: modelParam, role: 'Manual Selected' };
     const summary = this.formatContextPrompt(ctx);
 
-    const text = await this.client.chatText({
-      model: target.model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an institutional crypto trading assistant. Answer the user question concisely using the live market data provided.'
-        },
-        {
-          role: 'user',
-          content: `Live Market Snapshot:\n${summary}\n\nQuestion: ${question}`
-        }
-      ]
-    });
+    const text = await this.safeChat(target.model, [
+      {
+        role: 'system',
+        content: 'You are an institutional crypto trading assistant. Answer the user question concisely using the live market data provided.'
+      },
+      {
+        role: 'user',
+        content: `Live Market Snapshot:\n${summary}\n\nQuestion: ${question}`
+      }
+    ]);
     return { text, modelUsed: target.model, role: target.role };
   }
 

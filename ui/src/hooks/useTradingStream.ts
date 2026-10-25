@@ -142,7 +142,7 @@ function handleMessage(
     const latency = Math.max(0, Date.now() - msg.ts);
     setState((prev) => ({
       ...prev,
-      book: msg.book,
+      book: msg.book && msg.book.mid > 0 ? msg.book : prev.book,
       recentTrades: [...tradesRef.current],
       serverTime: msg.ts,
       isSynced: true,
@@ -151,10 +151,10 @@ function handleMessage(
   } else if (msg.type === 'cadence') {
     setState((prev) => ({
       ...prev,
-      structure: msg.structure,
-      matrix: msg.matrix,
-      signal: msg.signal,
-      absorption: msg.absorption
+      structure: msg.structure || prev.structure,
+      matrix: msg.matrix?.length ? msg.matrix : prev.matrix,
+      signal: msg.signal || prev.signal,
+      absorption: msg.absorption !== undefined ? msg.absorption : prev.absorption
     }));
   }
 }

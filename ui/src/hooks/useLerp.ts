@@ -5,14 +5,21 @@ import { useState, useEffect, useRef } from 'react';
  * Prevents jitter during high-frequency server updates.
  */
 export function useLerp(target: number, alpha = 0.18, precision = 2): number {
-  const [current, setCurrent] = useState(target);
-  const targetRef = useRef(target);
-  const currentRef = useRef(target);
+  const [current, setCurrent] = useState(target > 0 ? target : 0);
+  const targetRef = useRef(target > 0 ? target : 0);
+  const currentRef = useRef(target > 0 ? target : 0);
   const rafRef = useRef<number | null>(null);
 
-  targetRef.current = target;
+  if (target > 0) {
+    targetRef.current = target;
+    if (currentRef.current === 0) {
+      currentRef.current = target;
+      setCurrent(target);
+    }
+  }
 
   useEffect(() => {
+    if (targetRef.current <= 0) return;
     const threshold = Math.pow(10, -precision - 1);
 
     const animate = () => {

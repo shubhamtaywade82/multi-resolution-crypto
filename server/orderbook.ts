@@ -150,6 +150,10 @@ export class OrderBook {
 
     // Binance Futures sequence continuity check
     if (diff.pu !== this.lastu) {
+      if (diff.U <= this.lastu + 1 && diff.u > this.lastu) {
+        this.applyDiff(diff);
+        return true;
+      }
       this.gaps++;
       this.isSynced = false;
       onResyncNeeded();
@@ -177,8 +181,8 @@ export class OrderBook {
   public setResyncing(val: boolean): void {
     this.isResyncing = val;
     if (val) {
-      this.buffer = [];
       this.isSynced = false;
+      if (this.buffer.length > 80) this.buffer = this.buffer.slice(-40);
     }
   }
 
@@ -189,15 +193,25 @@ export class OrderBook {
     for (const a of snap.asks) this.asks.set(parseFloat(a.price || a[0]), parseFloat(a.qty || a[1]));
 
     const snapSeq = snap.lastUpdateId;
-    const startIdx = this.findBridgingEvent(snapSeq);
-    if (startIdx === -1) return false;
+    this.lastu = snapSeq;
+    const startIdx = this.resolveBridgeIndex(snapSeq);
 
-    for (let i = startIdx; i < this.buffer.length; i++) {
-      this.applyDiff(this.buffer[i]);
+    if (startIdx >= 0) {
+      for (let i = startIdx; i < this.buffer.length; i++) {
+        this.applyDiff(this.buffer[i]);
+      }
     }
+    this.buffer = [];
     this.isSynced = true;
     this.isResyncing = false;
     return true;
+  }
+
+  private resolveBridgeIndex(snapSeq: number): number {
+    if (this.buffer.length === 0) return -1;
+    const bridge = this.findBridgingEvent(snapSeq);
+    if (bridge !== -1) return bridge;
+    return this.buffer.findIndex(e => e.u > snapSeq);
   }
 
   private findBridgingEvent(snapSeq: number): number {
