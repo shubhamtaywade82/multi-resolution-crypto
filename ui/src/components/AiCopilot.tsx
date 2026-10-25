@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { marked } from 'marked';
 
 const SERVER_HTTP = 'http://localhost:8765';
 
+interface DispatchMeta {
+  model: string;
+  role: string;
+}
+
 export const AiCopilot: React.FC = () => {
-  const [models, setModels] = useState<string[]>([
-    'minicpm5-analyst:latest',
-    'minicpm5-summarizer:latest',
-    'minicpm5-router:latest',
-    'minicpm5-toolagent:latest',
-    'minicpm5:2b'
-  ]);
-  const [selectedModel, setSelectedModel] = useState<string>('minicpm5-analyst:latest');
+  const [models, setModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('auto');
   const [output, setOutput] = useState<string>('');
+  const [lastDispatch, setLastDispatch] = useState<DispatchMeta | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customPrompt, setCustomPrompt] = useState<string>('');
 
@@ -19,21 +20,19 @@ export const AiCopilot: React.FC = () => {
     fetch(`${SERVER_HTTP}/api/ai/models`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.models?.length) {
-          setModels(data.models);
-          if (data.models.includes('minicpm5-analyst:latest')) {
-            setSelectedModel('minicpm5-analyst:latest');
-          } else {
-            setSelectedModel(data.models[0]);
-          }
-        }
+        if (data.models?.length) setModels(data.models);
       })
       .catch(() => {});
   }, []);
 
+  const renderedHtml = useMemo(() => {
+    if (!output) return '';
+    return marked.parse(output, { gfm: true, breaks: true }) as string;
+  }, [output]);
+
   const runAnalysis = async () => {
     setIsLoading(true);
-    setOutput('Inferring market structure with ' + selectedModel + '...');
+    setOutput('Auto-routing to Quantitative Flow Analyst (minicpm5-analyst)...');
     try {
       const res = await fetch(`${SERVER_HTTP}/api/ai/analyze`, {
         method: 'POST',
@@ -41,7 +40,8 @@ export const AiCopilot: React.FC = () => {
         body: JSON.stringify({ model: selectedModel })
       });
       const data = await res.json();
-      setOutput(data.text || 'No response returned from model.');
+      setOutput(data.text || 'No response returned.');
+      if (data.modelUsed) setLastDispatch({ model: data.modelUsed, role: data.role });
     } catch (err: any) {
       setOutput(`Inference error: ${err.message}`);
     } finally {
@@ -52,7 +52,7 @@ export const AiCopilot: React.FC = () => {
   const askCustom = async (question: string) => {
     if (!question.trim()) return;
     setIsLoading(true);
-    setOutput('Querying ' + selectedModel + '...');
+    setOutput(`Routing question to optimal MiniCPM specialist...`);
     try {
       const res = await fetch(`${SERVER_HTTP}/api/ai/ask`, {
         method: 'POST',
@@ -60,7 +60,8 @@ export const AiCopilot: React.FC = () => {
         body: JSON.stringify({ question, model: selectedModel })
       });
       const data = await res.json();
-      setOutput(data.text || 'No response returned from model.');
+      setOutput(data.text || 'No response returned.');
+      if (data.modelUsed) setLastDispatch({ model: data.modelUsed, role: data.role });
     } catch (err: any) {
       setOutput(`Query error: ${err.message}`);
     } finally {
@@ -72,24 +73,34 @@ export const AiCopilot: React.FC = () => {
     <div className="panel">
       <div className="panel-head">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>AI COPILOT · MINICPM REASONING ENGINE</span>
-          <span style={{ fontSize: '10px', color: 'var(--p)', fontWeight: 'bold' }}>@nemesis-oss/ollama-sdk</span>
+          <span>AI COPILOT</span>
+          <span style={{
+            fontSize: '9px',
+            background: 'rgba(188, 140, 255, 0.15)',
+            color: 'var(--p)',
+            padding: '2px 6px',
+            borderRadius: '2px',
+            border: '1px solid rgba(188, 140, 255, 0.3)'
+          }}>
+            ⚡ MULTI-AGENT AUTO-ROUTER ACTIVE
+          </span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '10px', color: 'var(--muted)' }}>VARIANT:</span>
+          <span style={{ fontSize: '10px', color: 'var(--muted)' }}>MODE:</span>
           <select
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
             style={{
               background: 'var(--card-sub)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
+              border: `1px solid ${selectedModel === 'auto' ? 'var(--c)' : 'var(--border)'}`,
+              color: selectedModel === 'auto' ? 'var(--c)' : 'var(--text)',
               fontSize: '10px',
               padding: '2px 6px',
               borderRadius: '3px'
             }}
           >
+            <option value="auto">⚡ Auto-Route (All Specialists)</option>
             {models.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
@@ -98,7 +109,25 @@ export const AiCopilot: React.FC = () => {
       </div>
 
       <div className="panel-body" style={{ gap: '8px' }}>
-        {/* Quick prompt action chips */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+          fontSize: '10px',
+          color: 'var(--muted)',
+          background: 'var(--card-sub)',
+          padding: '4px 8px',
+          borderRadius: '3px',
+          border: '1px solid var(--border)'
+        }}>
+          <span style={{ color: 'var(--c)', fontWeight: 600 }}>COOPERATIVE POOL:</span>
+          <span>Analyst <i>(flow & SMC)</i></span> ·
+          <span>Summarizer <i>(3-bullet TLDR)</i></span> ·
+          <span>ToolAgent <i>(risk & walls)</i></span> ·
+          <span>Router <i>(intent dispatch)</i></span>
+        </div>
+
+        {/* Action chips automatically routed */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             onClick={runAnalysis}
@@ -119,7 +148,7 @@ export const AiCopilot: React.FC = () => {
 
           <QuickChip label="3-Bullet Summary" onClick={() => askCustom('Provide a 3-bullet executive summary of flow and structure')} disabled={isLoading} />
           <QuickChip label="Flow Divergence" onClick={() => askCustom('Is there order flow divergence across the 5s, 30s, and 5m windows?')} disabled={isLoading} />
-          <QuickChip label="Stop Loss Evaluation" onClick={() => askCustom('Evaluate our current stop loss placement against liquidity walls and structure')} disabled={isLoading} />
+          <QuickChip label="Stop Loss Evaluation" onClick={() => askCustom('Evaluate our current stop loss placement against liquidity walls')} disabled={isLoading} />
           <QuickChip label="Absorption Check" onClick={() => askCustom('Are aggressive market orders currently being absorbed by passive limit walls?')} disabled={isLoading} />
         </div>
 
@@ -129,7 +158,7 @@ export const AiCopilot: React.FC = () => {
             type="text"
             value={customPrompt}
             onChange={(e) => setCustomPrompt(e.target.value)}
-            placeholder="Ask MiniCPM anything about current book, OFI, CVD, structure, or risk..."
+            placeholder="Ask anything... intent automatically routed to the best MiniCPM specialist"
             onKeyDown={(e) => { if (e.key === 'Enter') { askCustom(customPrompt); setCustomPrompt(''); } }}
             style={{
               flex: 1,
@@ -159,23 +188,42 @@ export const AiCopilot: React.FC = () => {
           </button>
         </div>
 
-        {/* AI Output Window */}
+        {/* AI Output Window with Rich Markdown Formatting */}
         <div style={{
           background: '#04070c',
           border: '1px solid var(--border-sub)',
           borderRadius: '4px',
           padding: '10px 12px',
-          fontSize: '11px',
-          lineHeight: 1.5,
-          color: 'var(--text)',
           minHeight: '80px',
-          maxHeight: '260px',
+          maxHeight: '320px',
           overflowY: 'auto',
-          whiteSpace: 'pre-wrap'
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px'
         }}>
-          {output ? output : (
-            <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
-              Select a MiniCPM variant and click <b>Analyze Market Flow</b> or ask a question to generate institutional AI reasoning on real Binance USDⓈ-M flow...
+          {lastDispatch && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '10px',
+              color: 'var(--muted)',
+              paddingBottom: '4px',
+              borderBottom: '1px solid var(--border-sub)'
+            }}>
+              <span style={{ color: 'var(--c)' }}>⚡ DISPATCHED:</span>
+              <span style={{ color: 'var(--text)', fontWeight: 600 }}>{lastDispatch.model}</span>
+              <span style={{ color: 'var(--p)' }}>({lastDispatch.role})</span>
+            </div>
+          )}
+          {renderedHtml ? (
+            <div
+              className="ai-markdown"
+              dangerouslySetInnerHTML={{ __html: renderedHtml }}
+            />
+          ) : (
+            <span style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: '11px' }}>
+              Click <b>Analyze Market Flow</b>, pick a quick chip, or type a question. The system will automatically dispatch the optimal MiniCPM specialist...
             </span>
           )}
         </div>

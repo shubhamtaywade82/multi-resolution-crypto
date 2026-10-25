@@ -1,5 +1,17 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { BookState, Trade } from '../types.ts';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { BookState, Trade, Wall } from '../types.ts';
+import {
+  DepthHeatStore,
+  HEAT_CONFIG,
+  VIEW_SPAN,
+  HeatBucketResult
+} from '../utils/depthHeatStore.ts';
+import {
+  computeNormCeiling,
+  computeTopTick,
+  renderRasterHeatmap,
+  renderVectorOverlay
+} from '../utils/heatmapRenderer.ts';
 
 interface HeatmapProps {
   book: BookState | null;
@@ -7,227 +19,118 @@ interface HeatmapProps {
 }
 
 export const LiquidityHeatmap: React.FC<HeatmapProps> = ({ book, recentTrades }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const heatCvRef = useRef<HTMLCanvasElement | null>(null);
+  const ovlCvRef = useRef<HTMLCanvasElement | null>(null);
+  const storeRef = useRef<DepthHeatStore>(new DepthHeatStore());
+  const cacheRef = useRef<{ data: HeatBucketResult; t: number; span: number } | null>(null);
+
   const [view, setView] = useState<'5m' | '30m' | '2h'>('5m');
-  const historyRef = useRef<Array<{ t: number; mid: number; bids: any[]; asks: any[] }>>([]);
+  const [zoom, setZoom] = useState<number>(1);
+  const [note, setNote] = useState<string>('norm —');
 
   useEffect(() => {
     if (!book || book.mid === 0) return;
-    historyRef.current.push({
-      t: Date.now(),
-      mid: book.mid,
-      bids: book.bids.slice(0, 20),
-      asks: book.asks.slice(0, 20)
-    });
-    if (historyRef.current.length > 300) historyRef.current.shift();
+    const now = Date.now();
+    storeRef.current.seedIfEmpty(book, now);
+    storeRef.current.add(now, book, book.mid);
   }, [book]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  const drawAll = useCallback(() => {
+    const hCv = heatCvRef.current;
+    const oCv = ovlCvRef.current;
+    if (!hCv || !oCv || !book || book.mid === 0) return;
 
-    const width = canvas.width;
-    const height = canvas.height;
-    ctx.clearRect(0, 0, width, height);
+    const now = Date.now();
+    const span = VIEW_SPAN[view];
+    const colSpan = span / HEAT_CONFIG.cols;
 
-    // Dark grid background
-    ctx.fillStyle = '#080c12';
-    ctx.fillRect(0, 0, width, height);
+    if (!cacheRef.current || now - cacheRef.current.t > 400 || cacheRef.current.span !== colSpan) {
+      cacheRef.current = { data: storeRef.current.bucket(colSpan, now), t: now, span: colSpan };
+    }
 
-    if (!historyRef.current.length || !book) return;
+    const { cols, from, to, norm } = cacheRef.current.data;
+    const ceil = computeNormCeiling(norm);
+    const topT = computeTopTick(book.mid, storeRef.current, zoom);
 
-    const mid = book.mid;
-    const range = 0.8;
-    const minP = mid - range;
-    const maxP = mid + range;
-
-    const toY = (p: number) => height - ((p - minP) / (maxP - minP)) * height;
-
-    // Draw historical mid trajectory line
-    ctx.strokeStyle = 'rgba(88, 166, 255, 0.85)';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    historyRef.current.forEach((pt, i) => {
-      const x = (i / Math.max(1, historyRef.current.length - 1)) * (width - 70);
-      const y = toY(pt.mid);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    renderRasterHeatmap(hCv, cols, ceil, topT, zoom, storeRef.current.n);
+    renderVectorOverlay(oCv, hCv, {
+      cols,
+      from,
+      to,
+      topT,
+      tpr: zoom,
+      store: storeRef.current,
+      book,
+      recentTrades
     });
-    ctx.stroke();
 
-    // Draw trade burst bubbles
-    drawTradeBubbles(ctx, recentTrades, toY, width, height);
+    const dur = colSpan >= 1000 ? `${(colSpan / 1000).toFixed(1)}s` : `${colSpan.toFixed(0)}ms`;
+    setNote(`norm p95 ${ceil.toFixed(0)} SOL · col ${dur} · span ${(span / 60000).toFixed(0)}m · ${storeRef.current.colsCount} snaps`);
+  }, [book, recentTrades, view, zoom]);
 
-    // Draw current mid dashed line
-    const my = toY(mid);
-    ctx.strokeStyle = 'rgba(88, 166, 255, 0.4)';
-    ctx.setLineDash([2, 3]);
-    ctx.beginPath();
-    ctx.moveTo(0, my);
-    ctx.lineTo(width - 70, my);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Draw persistent wall lines
-    drawPersistentWalls(ctx, book, toY, width);
-
-    // Draw right-edge live book profile silhouette
-    drawBookProfile(ctx, book, toY, width, height);
-
-    // Draw price axis
-    drawPriceAxis(ctx, mid, range, toY, width);
-  }, [book, recentTrades, view]);
+  useEffect(() => {
+    const anim = requestAnimationFrame(drawAll);
+    return () => cancelAnimationFrame(anim);
+  }, [drawAll]);
 
   return (
     <div className="panel">
       <div className="panel-head">
-        <span>LIQUIDITY PRESSURE FIELD</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>LIQUIDITY PRESSURE FIELD</span>
+          <span style={{ fontSize: '9px', color: 'var(--muted)', fontWeight: 400 }}>
+            {view} · 150 cols · grid {HEAT_CONFIG.step} · zoom {zoom}x
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           {(['5m', '30m', '2h'] as const).map((v) => (
             <button
               key={v}
-              onClick={() => setView(v)}
-              style={{
-                background: view === v ? 'var(--card-sub)' : 'transparent',
-                border: `1px solid ${view === v ? 'var(--c)' : 'var(--border)'}`,
-                color: view === v ? 'var(--text)' : 'var(--muted)',
-                borderRadius: '2px',
-                padding: '2px 8px',
-                fontSize: '10px',
-                cursor: 'pointer'
-              }}
+              onClick={() => { setView(v); cacheRef.current = null; }}
+              style={btnStyle(view === v)}
             >
               {v}
             </button>
           ))}
+          <button
+            onClick={() => setZoom((z) => (z >= 4 ? 1 : z * 2))}
+            style={btnStyle(zoom > 1)}
+            title="Toggle tick compression zoom"
+          >
+            {zoom}x
+          </button>
         </div>
       </div>
 
-      <div className="panel-body" style={{ padding: '8px', gap: '8px' }}>
-        <canvas
-          ref={canvasRef}
-          width={800}
-          height={200}
-          style={{ width: '100%', height: '200px', borderRadius: '4px', display: 'block' }}
-        />
-
-        {/* Legend */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '9px', color: 'var(--muted)', padding: '2px 4px' }}>
-          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--g)', borderRadius: '1px', marginRight: '4px' }} />bid depth</span>
-          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--r)', borderRadius: '1px', marginRight: '4px' }} />ask depth</span>
-          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--p)', borderRadius: '1px', marginRight: '4px' }} />wall ≥ 30s life</span>
-          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--a)', borderRadius: '50%', marginRight: '4px' }} />trade burst</span>
-          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--c)', borderRadius: '1px', marginRight: '4px' }} />mid trajectory</span>
+      <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="hm">
+          <canvas ref={heatCvRef} className="heat-canvas" />
+          <canvas ref={ovlCvRef} className="ovl-canvas" />
+          <div className="hmnote">{note}</div>
+          <div className="hmleg">
+            <span><i className="sw" style={{ background: 'rgba(63,224,140,.9)' }} />bid depth</span>
+            <span><i className="sw" style={{ background: 'rgba(255,93,120,.9)' }} />ask depth</span>
+            <span><i className="sw" style={{ background: '#dff3ff' }} />persisted ≥ 6 obs</span>
+            <span><i className="sw" style={{ background: 'var(--p)' }} />wall ≥ 15s</span>
+            <span><i className="sw" style={{ background: 'var(--a)' }} />trade burst</span>
+            <span><i className="sw" style={{ background: 'var(--c)' }} />book profile (right)</span>
+          </div>
         </div>
 
-        {/* Persistent Wall Summary Tables */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '8px',
-          fontSize: '11px',
-          marginTop: '4px'
-        }}>
-          <WallList side="BID" walls={book?.walls?.bids ?? []} color="var(--g)" />
-          <WallList side="ASK" walls={book?.walls?.asks ?? []} color="var(--r)" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <WallSummaryCard side="BID" walls={book?.walls?.bids ?? []} color="var(--g)" />
+          <WallSummaryCard side="ASK" walls={book?.walls?.asks ?? []} color="var(--r)" />
         </div>
       </div>
     </div>
   );
 };
 
-function drawTradeBubbles(
-  ctx: CanvasRenderingContext2D,
-  trades: Trade[],
-  toY: (p: number) => number,
-  width: number,
-  height: number
-): void {
-  const now = Date.now();
-  for (const t of trades.slice(0, 15)) {
-    const x = Math.max(0, width - 70 - ((now - t.timestamp) / 300000) * (width - 70));
-    const y = toY(t.price);
-    if (y >= 0 && y <= height) {
-      ctx.beginPath();
-      ctx.arc(x, y, Math.min(8, Math.max(2, Math.sqrt(t.quantity))), 0, Math.PI * 2);
-      ctx.fillStyle = t.aggressorSide === 'BUY' ? 'rgba(255, 180, 40, 0.4)' : 'rgba(248, 81, 73, 0.4)';
-      ctx.fill();
-    }
-  }
-}
-
-function drawPersistentWalls(
-  ctx: CanvasRenderingContext2D,
-  book: BookState,
-  toY: (p: number) => number,
-  width: number
-): void {
-  const allWalls = [...(book.walls?.bids ?? []), ...(book.walls?.asks ?? [])];
-  for (const w of allWalls) {
-    if (w.life < 15) continue;
-    const y = toY(w.p);
-    ctx.strokeStyle = w.side === 'bid' ? 'rgba(63, 185, 80, 0.45)' : 'rgba(248, 81, 73, 0.45)';
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width - 70, y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-}
-
-function drawBookProfile(
-  ctx: CanvasRenderingContext2D,
-  book: BookState,
-  toY: (p: number) => number,
-  width: number,
-  height: number
-): void {
-  const profileW = 60;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-  ctx.beginPath();
-  ctx.moveTo(width - profileW, 0);
-  ctx.lineTo(width - profileW, height);
-  ctx.stroke();
-
-  const maxQ = Math.max(1, ...book.bids.slice(0, 15).map(b => b.q), ...book.asks.slice(0, 15).map(a => a.q));
-
-  for (const b of book.bids.slice(0, 15)) {
-    const y = toY(b.p);
-    const barW = (b.q / maxQ) * (profileW - 10);
-    ctx.fillStyle = 'rgba(63, 185, 80, 0.35)';
-    ctx.fillRect(width - profileW, y - 2, barW, 4);
-  }
-
-  for (const a of book.asks.slice(0, 15)) {
-    const y = toY(a.p);
-    const barW = (a.q / maxQ) * (profileW - 10);
-    ctx.fillStyle = 'rgba(248, 81, 73, 0.35)';
-    ctx.fillRect(width - profileW, y - 2, barW, 4);
-  }
-}
-
-function drawPriceAxis(
-  ctx: CanvasRenderingContext2D,
-  mid: number,
-  range: number,
-  toY: (p: number) => number,
-  width: number
-): void {
-  ctx.fillStyle = 'rgba(139, 148, 158, 0.9)';
-  ctx.font = '10px JetBrains Mono';
-  ctx.textAlign = 'right';
-
-  for (let step = -range; step <= range; step += range / 3) {
-    const p = mid + step;
-    const y = toY(p);
-    ctx.fillText(`$${p.toFixed(2)}`, width - 5, y + 3);
-  }
-}
-
-const WallList: React.FC<{ side: string; walls: any[]; color: string }> = ({ side, walls, color }) => (
+const WallSummaryCard: React.FC<{ side: string; walls: Wall[]; color: string }> = ({
+  side,
+  walls,
+  color
+}) => (
   <div style={{ background: 'var(--card-sub)', padding: '6px 8px', borderRadius: '4px', border: '1px solid var(--border)' }}>
     <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '3px' }}>
       {side}-SIDE PERSISTENT LEVELS
@@ -246,3 +149,16 @@ const WallList: React.FC<{ side: string; walls: any[]; color: string }> = ({ sid
     )}
   </div>
 );
+
+function btnStyle(active: boolean): React.CSSProperties {
+  return {
+    background: active ? '#0a3340' : 'transparent',
+    border: `1px solid ${active ? 'var(--c)' : 'var(--border)'}`,
+    color: active ? 'var(--c)' : 'var(--muted)',
+    borderRadius: '2px',
+    padding: '2px 8px',
+    fontSize: '10px',
+    cursor: 'pointer',
+    fontWeight: active ? 700 : 400
+  };
+}

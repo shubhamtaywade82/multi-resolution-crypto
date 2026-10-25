@@ -10,6 +10,12 @@ export interface MarketContext {
   absorption: AbsorptionEvent | null;
 }
 
+export interface AiResponse {
+  text: string;
+  modelUsed: string;
+  role: string;
+}
+
 export class AiService {
   private client = new OllamaClient();
   public defaultModel = 'minicpm5-analyst:latest';
@@ -39,10 +45,33 @@ export class AiService {
     return this.cachedModels.length > 0 ? this.cachedModels : [this.defaultModel];
   }
 
-  public async analyzeMarket(ctx: MarketContext, model = this.defaultModel): Promise<string> {
+  public resolveSpecialist(query?: string): { model: string; role: string } {
+    const q = (query || '').toLowerCase();
+    const available = this.getModels();
+
+    if (q.includes('summary') || q.includes('recap') || q.includes('bullet') || q.includes('brief') || q.includes('tldr')) {
+      const match = available.find((m) => m.includes('summarizer'));
+      if (match) return { model: match, role: 'Executive Summarizer' };
+    }
+
+    if (q.includes('stop loss') || q.includes('absorption') || q.includes('risk') || q.includes('friction') || q.includes('tool')) {
+      const match = available.find((m) => m.includes('toolagent'));
+      if (match) return { model: match, role: 'Execution & Risk Tool Agent' };
+    }
+
+    const analyst = available.find((m) => m.includes('analyst'));
+    if (analyst) return { model: analyst, role: 'Quantitative Flow Analyst' };
+
+    return { model: available[0] || this.defaultModel, role: 'General Reasoner' };
+  }
+
+  public async analyzeMarket(ctx: MarketContext, modelParam?: string): Promise<AiResponse> {
+    const isAuto = !modelParam || modelParam === 'auto';
+    const target = isAuto ? this.resolveSpecialist('market flow analysis') : { model: modelParam, role: 'Manual Selected' };
     const prompt = this.formatContextPrompt(ctx);
-    return this.client.chatText({
-      model,
+
+    const text = await this.client.chatText({
+      model: target.model,
       messages: [
         {
           role: 'system',
@@ -51,12 +80,16 @@ export class AiService {
         { role: 'user', content: prompt }
       ]
     });
+    return { text, modelUsed: target.model, role: target.role };
   }
 
-  public async askQuestion(ctx: MarketContext, question: string, model = this.defaultModel): Promise<string> {
+  public async askQuestion(ctx: MarketContext, question: string, modelParam?: string): Promise<AiResponse> {
+    const isAuto = !modelParam || modelParam === 'auto';
+    const target = isAuto ? this.resolveSpecialist(question) : { model: modelParam, role: 'Manual Selected' };
     const summary = this.formatContextPrompt(ctx);
-    return this.client.chatText({
-      model,
+
+    const text = await this.client.chatText({
+      model: target.model,
       messages: [
         {
           role: 'system',
@@ -68,15 +101,16 @@ export class AiService {
         }
       ]
     });
+    return { text, modelUsed: target.model, role: target.role };
   }
 
   private formatContextPrompt(ctx: MarketContext): string {
     const mid = ctx.book.mid.toFixed(2);
     const spread = (ctx.book.ba - ctx.book.bb).toFixed(2);
-    const w5m = ctx.matrix.find(m => m.label === '5m');
-    const w2m = ctx.matrix.find(m => m.label === '2m');
-    const st5m = ctx.structure['5m'];
-    const st1h = ctx.structure['1h'];
+    const w5m = ctx.matrix.find((m) => m.label === '5m');
+    const w2m = ctx.matrix.find((m) => m.label === '2m');
+    const st5m = ctx.structure['5m'] || ctx.structure['m5'];
+    const st1h = ctx.structure['1h'] || ctx.structure['h1'];
 
     return [
       `Asset: ${ctx.symbol} (USDⓈ-M Perp)`,

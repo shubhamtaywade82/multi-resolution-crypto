@@ -17,10 +17,12 @@ export const Footer: React.FC = () => {
     }}>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
         <span>SHORTCUTS:</span>
-        <span><kbd style={{ background: 'var(--card-sub)', border: '1px solid var(--border)', padding: '1px 4px', borderRadius: '2px', color: 'var(--text)' }}>1</kbd> <kbd style={{ background: 'var(--card-sub)', border: '1px solid var(--border)', padding: '1px 4px', borderRadius: '2px', color: 'var(--text)' }}>2</kbd> <kbd style={{ background: 'var(--card-sub)', border: '1px solid var(--border)', padding: '1px 4px', borderRadius: '2px', color: 'var(--text)' }}>3</kbd> heat view</span>
-        <span><kbd style={{ background: 'var(--card-sub)', border: '1px solid var(--border)', padding: '1px 4px', borderRadius: '2px', color: 'var(--text)' }}>s</kbd> smoothing</span>
-        <span><kbd style={{ background: 'var(--card-sub)', border: '1px solid var(--border)', padding: '1px 4px', borderRadius: '2px', color: 'var(--text)' }}>4</kbd> 4h filter</span>
-        <span><kbd style={{ background: 'var(--card-sub)', border: '1px solid var(--border)', padding: '1px 4px', borderRadius: '2px', color: 'var(--text)' }}>x</kbd> countertrend</span>
+        <span><kbd style={kbdStyle}>1</kbd> <kbd style={kbdStyle}>2</kbd> <kbd style={kbdStyle}>3</kbd> heat view</span>
+        <span><kbd style={kbdStyle}>t</kbd> trade tape</span>
+        <span><kbd style={kbdStyle}>s</kbd> smoothing</span>
+        <span><kbd style={kbdStyle}>4</kbd> 4h filter</span>
+        <span><kbd style={kbdStyle}>x</kbd> countertrend</span>
+        <span><kbd style={kbdStyle}>[</kbd> <kbd style={kbdStyle}>]</kbd> persist sec</span>
       </div>
 
       <div>
@@ -28,4 +30,12 @@ export const Footer: React.FC = () => {
       </div>
     </footer>
   );
+};
+
+const kbdStyle: React.CSSProperties = {
+  background: 'var(--card-sub)',
+  border: '1px solid var(--border)',
+  padding: '1px 4px',
+  borderRadius: '2px',
+  color: 'var(--text)'
 };

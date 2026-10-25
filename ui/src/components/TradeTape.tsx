@@ -3,9 +3,10 @@ import { Trade } from '../types.ts';
 
 interface TapeProps {
   trades: Trade[];
+  onClose?: () => void;
 }
 
-export const TradeTape: React.FC<TapeProps> = ({ trades }) => {
+export const TradeTape: React.FC<TapeProps> = ({ trades, onClose }) => {
   let runningCvd = 0;
   const processed = trades.slice(0, 30).map((t) => {
     runningCvd += t.signedQuantity;
@@ -15,8 +16,27 @@ export const TradeTape: React.FC<TapeProps> = ({ trades }) => {
   return (
     <div className="panel" style={{ height: '100%' }}>
       <div className="panel-head">
-        <span>TRADE TAPE</span>
-        <span style={{ fontSize: '10px', color: 'var(--muted)' }}>RAW RING · LIVE FLOW</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>TRADE TAPE</span>
+          <span style={{ fontSize: '10px', color: 'var(--muted)' }}>RAW RING · LIVE FLOW</span>
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              color: 'var(--muted)',
+              fontSize: '10px',
+              padding: '1px 6px',
+              cursor: 'pointer',
+              borderRadius: '2px'
+            }}
+            title="Hide trade tape"
+          >
+            ✕ HIDE
+          </button>
+        )}
       </div>
       <div className="panel-body" style={{ padding: '4px', overflowY: 'auto', maxHeight: '420px', gap: '2px' }}>
         {processed.length === 0 ? (

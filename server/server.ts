@@ -90,13 +90,13 @@ export class TradingEngineServer {
     const body = await readBody(req);
     const ctx = this.getBootstrapPayload();
     if (req.url === '/api/ai/analyze') {
-      const text = await this.ai.analyzeMarket(ctx, body.model);
-      res.end(JSON.stringify({ text }));
+      const result = await this.ai.analyzeMarket(ctx, body.model);
+      res.end(JSON.stringify(result));
       return;
     }
     if (req.url === '/api/ai/ask') {
-      const text = await this.ai.askQuestion(ctx, body.question || 'Summarize current edge', body.model);
-      res.end(JSON.stringify({ text }));
+      const result = await this.ai.askQuestion(ctx, body.question || 'Summarize current edge', body.model);
+      res.end(JSON.stringify(result));
       return;
     }
     res.writeHead(404); res.end('{"error":"not found"}');

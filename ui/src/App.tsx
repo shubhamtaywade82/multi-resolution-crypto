@@ -33,6 +33,7 @@ export const App: React.FC = () => {
   const [use4h, setUse4h] = useState(false);
   const [countertrend, setCountertrend] = useState(false);
   const [persistSec, setPersistSec] = useState(7);
+  const [showTape, setShowTape] = useState(false);
 
   const [events, setEvents] = useState<LogEvent[]>([
     { t: Date.now() - 15000, k: 'sys', msg: 'System initialized and attached to real Binance USDⓈ-M Futures', tag: 'L0' },
@@ -75,6 +76,7 @@ export const App: React.FC = () => {
       if (e.key === 's' || e.key === 'S') setSmoothing((v) => !v);
       else if (e.key === '4') setUse4h((v) => !v);
       else if (e.key === 'x' || e.key === 'X') setCountertrend((v) => !v);
+      else if (e.key === 't' || e.key === 'T') setShowTape((v) => !v);
       else if (e.key === '[') setPersistSec((p) => Math.max(3, p - 1));
       else if (e.key === ']') setPersistSec((p) => Math.min(20, p + 1));
     };
@@ -123,6 +125,8 @@ export const App: React.FC = () => {
         setCountertrend={setCountertrend}
         persistSec={persistSec}
         setPersistSec={setPersistSec}
+        showTape={showTape}
+        setShowTape={setShowTape}
       />
 
       {/* Row 1: L1 Micro / L2 Flow Matrix / L3/L4 Structure */}
@@ -132,9 +136,31 @@ export const App: React.FC = () => {
         gap: '12px',
         alignItems: 'start'
       }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <OrderBookLadder book={book} />
-          <TradeTape trades={recentTrades} />
+          {showTape ? (
+            <TradeTape trades={recentTrades} onClose={() => setShowTape(false)} />
+          ) : (
+            <button
+              onClick={() => setShowTape(true)}
+              style={{
+                background: 'var(--card-sub)',
+                border: '1px dashed var(--border)',
+                color: 'var(--muted)',
+                fontSize: '10px',
+                padding: '7px 10px',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+              title="Click or press 't' to show live trade tape"
+            >
+              <span>▶</span> <span>SHOW TRADE TAPE (OFF)</span>
+            </button>
+          )}
         </div>
 
         <div>

@@ -14,6 +14,8 @@ interface CadenceProps {
   setCountertrend: (val: boolean) => void;
   persistSec: number;
   setPersistSec: (val: number) => void;
+  showTape: boolean;
+  setShowTape: (val: boolean) => void;
 }
 
 export const CadencePanel: React.FC<CadenceProps> = ({
@@ -29,7 +31,9 @@ export const CadencePanel: React.FC<CadenceProps> = ({
   countertrend,
   setCountertrend,
   persistSec,
-  setPersistSec
+  setPersistSec,
+  showTape,
+  setShowTape
 }) => {
   return (
     <div className="panel">
@@ -117,6 +121,17 @@ export const CadencePanel: React.FC<CadenceProps> = ({
               onChange={(e) => setCountertrend(e.target.checked)}
             />
             <span>allow countertrend vs 1h</span>
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showTape}
+              onChange={(e) => setShowTape(e.target.checked)}
+            />
+            <span style={{ color: showTape ? 'var(--c)' : 'var(--text)' }}>
+              trade tape {showTape ? '(on)' : '(off)'}
+            </span>
           </label>
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
