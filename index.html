@@ -14,12 +14,12 @@
   --fg:#b8c4d0;--fg2:#7e8c9a;--dim:#4b5967;--mute:#33404c;
   --g:#3fe08c;--r:#ff5d78;--a:#ffb428;--c:#3fd8ff;--p:#b58cff;--w:#e8eef4;
 }
-html,body{background:var(--bg);color:var(--fg);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.45}
+html,body{background:var(--bg);color:var(--fg);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.45;overflow-x:hidden}
 body{padding:7px;min-height:100vh}
 body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:99;
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.17) 0 1px,transparent 1px 3px);opacity:.45}
-.wrap{width:100%}
-.box{border:1px solid var(--bd);background:var(--panel);margin-bottom:6px;position:relative}
+.wrap{width:100%;max-width:100%;overflow-x:hidden}
+.box{border:1px solid var(--bd);background:var(--panel);margin-bottom:6px;position:relative;min-width:0}
 .box.hot{border-color:var(--hot)}
 .box.alarm{border-color:#7a2233;box-shadow:inset 0 0 0 1px rgba(255,93,120,.12)}
 .bt{position:absolute;top:-1px;left:10px;transform:translateY(-50%);background:var(--bg);
@@ -42,6 +42,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:99;
 
 /* rows */
 .row{display:grid;gap:6px}
+.row>*{min-width:0}
 .r3{grid-template-columns:330px 1fr 400px}
 .r3b{grid-template-columns:1fr 380px 320px}
 .r2{grid-template-columns:1fr 1fr}
@@ -87,6 +88,9 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:99;
 .tr .t5{flex:1;text-align:right;color:var(--dim)}
 
 /* matrix */
+.mx-wrap{overflow-x:auto;width:100%;scrollbar-width:thin;scrollbar-color:var(--bd2) transparent}
+.mx-wrap::-webkit-scrollbar{height:4px}
+.mx-wrap::-webkit-scrollbar-thumb{background:var(--bd2)}
 table.mx{width:100%;border-collapse:collapse;font-size:10.5px}
 table.mx th{font-size:8.5px;letter-spacing:1px;color:var(--mute);text-transform:uppercase;
   text-align:right;padding:3px 5px;border-bottom:1px solid var(--bd2);font-weight:400;white-space:nowrap}
@@ -278,13 +282,15 @@ input:focus,select:focus{outline:0;border-color:var(--c)}
       <div class="bt"><b>┤</b> L2 · MULTI-RESOLUTION FLOW MATRIX <span class="tg">— noise filter: short vs medium vs long computed together</span> <b>├</b></div>
       <div class="br">summarize 1 s</div>
       <div class="bd">
-        <table class="mx" id="mx">
-          <thead><tr>
-            <th>window</th><th>src</th><th>trades</th><th>OFI norm</th><th>CVD</th><th>buy %</th>
-            <th>displ bps</th><th>RV bps</th><th>efficiency</th><th>fill</th><th>read</th>
-          </tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="mx-wrap">
+          <table class="mx" id="mx">
+            <thead><tr>
+              <th>window</th><th>src</th><th>trades</th><th>OFI norm</th><th>CVD</th><th>buy %</th>
+              <th>displ bps</th><th>RV bps</th><th>efficiency</th><th>fill</th><th>read</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
 
         <div class="verdict">
           <div class="vh">noise-filter interpretation</div>
