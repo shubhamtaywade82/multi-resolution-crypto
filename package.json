@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@nemesis-oss/binance-sdk": "file:../../sdks-and-clients/binance/binance-sdk",
+    "@nemesis-oss/ollama-sdk": "file:../../sdks-and-clients/ollama/ollama-sdk",
     "ws": "^8.18.0"
   },
   "devDependencies": {

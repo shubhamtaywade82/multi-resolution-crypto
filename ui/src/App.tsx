@@ -11,6 +11,7 @@ import { SignalPanel } from './components/SignalPanel.tsx';
 import { ExecutionPanel } from './components/ExecutionPanel.tsx';
 import { RiskPanel } from './components/RiskPanel.tsx';
 import { EventLog, LogEvent } from './components/EventLog.tsx';
+import { AiCopilot } from './components/AiCopilot.tsx';
 import { Footer } from './components/Footer.tsx';
 
 export const App: React.FC = () => {
@@ -148,7 +149,10 @@ export const App: React.FC = () => {
       {/* Row 2: Full-width Liquidity Pressure Field Heatmap */}
       <LiquidityHeatmap book={book} recentTrades={recentTrades} />
 
-      {/* Row 3: Signal / Execution Friction / Risk Guard */}
+      {/* Row 3: AI Copilot with MiniCPM Models */}
+      <AiCopilot />
+
+      {/* Row 4: Signal / Execution Friction / Risk Guard */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr 1fr',
@@ -160,7 +164,7 @@ export const App: React.FC = () => {
         <RiskPanel book={book} signal={signal} isStale={isStale} />
       </div>
 
-      {/* Row 4: Confirmed Event Log */}
+      {/* Row 5: Confirmed Event Log */}
       <EventLog events={events} />
 
       <Footer />
