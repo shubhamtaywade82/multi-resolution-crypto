@@ -16,6 +16,12 @@ export interface AiResponse {
   role: string;
 }
 
+export interface MarketEventPayload {
+  type: string;
+  summary: string;
+  triggerTime: number;
+}
+
 export class AiService {
   private client = new OllamaClient();
   public defaultModel = 'minicpm5-analyst:latest';
@@ -76,6 +82,35 @@ export class AiService {
         {
           role: 'system',
           content: 'You are an institutional crypto order flow and SMC market structure analyst. Provide direct, concise, factual analysis based strictly on the provided market data. Highlight order flow divergence, wall persistence, absorption, and setup validity.'
+        },
+        { role: 'user', content: prompt }
+      ]
+    });
+    return { text, modelUsed: target.model, role: target.role };
+  }
+
+  public async analyzeEvent(
+    ctx: MarketContext,
+    event: MarketEventPayload,
+    modelParam?: string
+  ): Promise<AiResponse> {
+    const isAuto = !modelParam || modelParam === 'auto';
+    const target = isAuto ? this.resolveSpecialist(event.summary) : { model: modelParam, role: 'Manual Selected' };
+    const prompt = [
+      `### CRITICAL MARKET EVENT DETECTED:`,
+      `Type: ${event.type}`,
+      `Details: ${event.summary}`,
+      `Time: ${new Date(event.triggerTime).toISOString()}`,
+      `\n### Live Order Flow & SMC Context:`,
+      this.formatContextPrompt(ctx)
+    ].join('\n');
+
+    const text = await this.client.chatText({
+      model: target.model,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an institutional algorithmic trading copilot. A critical market event or regime shift just triggered. Provide an immediate, concise, data-driven event briefing. Analyze: (1) Event significance & structural impact, (2) Order flow validation or divergence, (3) Tactical guidance or risk invalidation.'
         },
         { role: 'user', content: prompt }
       ]

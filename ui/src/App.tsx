@@ -11,7 +11,7 @@ import { SignalPanel } from './components/SignalPanel.tsx';
 import { ExecutionPanel } from './components/ExecutionPanel.tsx';
 import { RiskPanel } from './components/RiskPanel.tsx';
 import { EventLog, LogEvent } from './components/EventLog.tsx';
-import { AiCopilot } from './components/AiCopilot.tsx';
+import { AiCopilot, MarketEvent } from './components/AiCopilot.tsx';
 import { Footer } from './components/Footer.tsx';
 
 export const App: React.FC = () => {
@@ -34,6 +34,7 @@ export const App: React.FC = () => {
   const [countertrend, setCountertrend] = useState(false);
   const [persistSec, setPersistSec] = useState(7);
   const [showTape, setShowTape] = useState(false);
+  const [latestEvent, setLatestEvent] = useState<MarketEvent | null>(null);
 
   const [events, setEvents] = useState<LogEvent[]>([
     { t: Date.now() - 15000, k: 'sys', msg: 'System initialized and attached to real Binance USDⓈ-M Futures', tag: 'L0' },
@@ -41,17 +42,20 @@ export const App: React.FC = () => {
     { t: Date.now() - 5000, k: 'wall', msg: 'Orderbook diff depth synchronized · sequence continuity verified', tag: 'L1' }
   ]);
   const prevSignalRef = useRef<string>('NO_TRADE');
+  const prevPatternRef = useRef<string>('');
 
   useEffect(() => {
     if (!signal) return;
     if (prevSignalRef.current !== signal.state) {
+      const summary = `STATE ${prevSignalRef.current} → ${signal.state} (${signal.pts > 0 ? '+' : ''}${signal.pts.toFixed(1)} pts)`;
+      setLatestEvent({
+        id: `sig-${Date.now()}`,
+        type: 'SIGNAL_TRANSITION',
+        summary,
+        triggerTime: Date.now()
+      });
       setEvents((prev) => [
-        {
-          t: Date.now(),
-          k: 'signal' as const,
-          msg: `STATE ${prevSignalRef.current} → ${signal.state} · ${signal.pts > 0 ? '+' : ''}${signal.pts.toFixed(1)} pts`,
-          tag: 'L2'
-        },
+        { t: Date.now(), k: 'signal' as const, msg: summary, tag: 'L2' },
         ...prev
       ].slice(0, 80));
       prevSignalRef.current = signal.state;
@@ -60,16 +64,33 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (!absorption) return;
+    const summary = `Absorption CONFIRMED: ${absorption.dir > 0 ? 'Sell' : 'Buy'} flow absorbed @ $${absorption.price.toFixed(2)}`;
+    setLatestEvent({
+      id: `abs-${absorption.at}-${absorption.price}`,
+      type: 'ABSORPTION_CONFIRMED',
+      summary,
+      triggerTime: absorption.at
+    });
     setEvents((prev) => [
-      {
-        t: Date.now(),
-        k: 'absorb' as const,
-        msg: `Absorption CONFIRMED: ${absorption.dir > 0 ? 'Sell' : 'Buy'} flow absorbed @ $${absorption.price.toFixed(2)}`,
-        tag: 'L2'
-      },
+      { t: Date.now(), k: 'absorb' as const, msg: summary, tag: 'L2' },
       ...prev
     ].slice(0, 80));
-  }, [absorption?.at]);
+  }, [absorption?.at, absorption?.price, absorption?.dir]);
+
+  useEffect(() => {
+    const st5m = structure?.['5m'];
+    if (!st5m?.pattern || st5m.pattern === prevPatternRef.current) return;
+    if (prevPatternRef.current && st5m.pattern !== 'NONE') {
+      const summary = `5m Regime Shift: ${st5m.pattern} (${st5m.trend})`;
+      setLatestEvent({
+        id: `struct-${Date.now()}`,
+        type: 'STRUCTURE_BREAK',
+        summary,
+        triggerTime: Date.now()
+      });
+    }
+    prevPatternRef.current = st5m.pattern;
+  }, [structure?.['5m']?.pattern, structure?.['5m']?.trend]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -175,8 +196,8 @@ export const App: React.FC = () => {
       {/* Row 2: Full-width Liquidity Pressure Field Heatmap */}
       <LiquidityHeatmap book={book} recentTrades={recentTrades} />
 
-      {/* Row 3: AI Copilot with MiniCPM Models */}
-      <AiCopilot />
+      {/* Row 3: AI Copilot with Autonomous Event-Driven Engine */}
+      <AiCopilot latestEvent={latestEvent} />
 
       {/* Row 4: Signal / Execution Friction / Risk Guard */}
       <div style={{

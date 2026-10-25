@@ -94,6 +94,12 @@ export class TradingEngineServer {
       res.end(JSON.stringify(result));
       return;
     }
+    if (req.url === '/api/ai/event') {
+      const ev = body.event || { type: 'REGIME_CHANGE', summary: 'Regime shift detected', triggerTime: Date.now() };
+      const result = await this.ai.analyzeEvent(ctx, ev, body.model);
+      res.end(JSON.stringify(result));
+      return;
+    }
     if (req.url === '/api/ai/ask') {
       const result = await this.ai.askQuestion(ctx, body.question || 'Summarize current edge', body.model);
       res.end(JSON.stringify(result));
