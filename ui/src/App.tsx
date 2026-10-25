@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTradingStream } from './hooks/useTradingStream.ts';
 import { TopBar } from './components/TopBar.tsx';
 import { CadencePanel } from './components/CadencePanel.tsx';
@@ -19,6 +19,7 @@ export const App: React.FC = () => {
     isSynced,
     serverTime,
     book,
+    candles,
     recentTrades,
     structure,
     matrix,
@@ -32,16 +33,58 @@ export const App: React.FC = () => {
   const [countertrend, setCountertrend] = useState(false);
   const [persistSec, setPersistSec] = useState(7);
 
-  const [events] = useState<LogEvent[]>([
+  const [events, setEvents] = useState<LogEvent[]>([
     { t: Date.now() - 15000, k: 'sys', msg: 'System initialized and attached to real Binance USDⓈ-M Futures', tag: 'L0' },
     { t: Date.now() - 10000, k: 'struct', msg: 'Seeded 100% REAL Binance candles: 1m/3m/5m/15m/1h/4h', tag: 'L3' },
     { t: Date.now() - 5000, k: 'wall', msg: 'Orderbook diff depth synchronized · sequence continuity verified', tag: 'L1' }
   ]);
+  const prevSignalRef = useRef<string>('NO_TRADE');
+
+  useEffect(() => {
+    if (!signal) return;
+    if (prevSignalRef.current !== signal.state) {
+      setEvents((prev) => [
+        {
+          t: Date.now(),
+          k: 'signal' as const,
+          msg: `STATE ${prevSignalRef.current} → ${signal.state} · ${signal.pts > 0 ? '+' : ''}${signal.pts.toFixed(1)} pts`,
+          tag: 'L2'
+        },
+        ...prev
+      ].slice(0, 80));
+      prevSignalRef.current = signal.state;
+    }
+  }, [signal?.state, signal?.pts]);
+
+  useEffect(() => {
+    if (!absorption) return;
+    setEvents((prev) => [
+      {
+        t: Date.now(),
+        k: 'absorb' as const,
+        msg: `Absorption CONFIRMED: ${absorption.dir > 0 ? 'Sell' : 'Buy'} flow absorbed @ $${absorption.price.toFixed(2)}`,
+        tag: 'L2'
+      },
+      ...prev
+    ].slice(0, 80));
+  }, [absorption?.at]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 's' || e.key === 'S') setSmoothing((v) => !v);
+      else if (e.key === '4') setUse4h((v) => !v);
+      else if (e.key === 'x' || e.key === 'X') setCountertrend((v) => !v);
+      else if (e.key === '[') setPersistSec((p) => Math.max(3, p - 1));
+      else if (e.key === ']') setPersistSec((p) => Math.min(20, p + 1));
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const isStale = book ? Date.now() - book.ts > 2000 : true;
-  const flowFill = matrix.find(m => m.label === '5m')?.fill ?? 1;
+  const flowFill = matrix.find((m) => m.label === '5m')?.fill ?? 1;
   const structProg = structure?.['1m']?.progress ?? 0;
-  const w5m = matrix.find(m => m.label === '5m');
+  const w5m = matrix.find((m) => m.label === '5m');
 
   return (
     <div className="cockpit-wrap">
@@ -98,7 +141,7 @@ export const App: React.FC = () => {
         </div>
 
         <div>
-          <StructureGrid structure={structure} />
+          <StructureGrid structure={structure} candles={candles} />
         </div>
       </div>
 

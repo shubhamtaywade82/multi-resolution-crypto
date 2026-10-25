@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   BookState,
   Trade,
+  Candle,
   StructureAnalysis,
   WindowMetric,
   SignalState,

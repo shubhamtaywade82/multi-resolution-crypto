@@ -57,6 +57,19 @@ export const LiquidityHeatmap: React.FC<HeatmapProps> = ({ book, recentTrades })
     });
     ctx.stroke();
 
+    // Draw trade burst bubbles
+    drawTradeBubbles(ctx, recentTrades, toY, width, height);
+
+    // Draw current mid dashed line
+    const my = toY(mid);
+    ctx.strokeStyle = 'rgba(88, 166, 255, 0.4)';
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(0, my);
+    ctx.lineTo(width - 70, my);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
     // Draw persistent wall lines
     drawPersistentWalls(ctx, book, toY, width);
 
@@ -100,6 +113,15 @@ export const LiquidityHeatmap: React.FC<HeatmapProps> = ({ book, recentTrades })
           style={{ width: '100%', height: '200px', borderRadius: '4px', display: 'block' }}
         />
 
+        {/* Legend */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '9px', color: 'var(--muted)', padding: '2px 4px' }}>
+          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--g)', borderRadius: '1px', marginRight: '4px' }} />bid depth</span>
+          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--r)', borderRadius: '1px', marginRight: '4px' }} />ask depth</span>
+          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--p)', borderRadius: '1px', marginRight: '4px' }} />wall ≥ 30s life</span>
+          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--a)', borderRadius: '50%', marginRight: '4px' }} />trade burst</span>
+          <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--c)', borderRadius: '1px', marginRight: '4px' }} />mid trajectory</span>
+        </div>
+
         {/* Persistent Wall Summary Tables */}
         <div style={{
           display: 'grid',
@@ -115,6 +137,26 @@ export const LiquidityHeatmap: React.FC<HeatmapProps> = ({ book, recentTrades })
     </div>
   );
 };
+
+function drawTradeBubbles(
+  ctx: CanvasRenderingContext2D,
+  trades: Trade[],
+  toY: (p: number) => number,
+  width: number,
+  height: number
+): void {
+  const now = Date.now();
+  for (const t of trades.slice(0, 15)) {
+    const x = Math.max(0, width - 70 - ((now - t.timestamp) / 300000) * (width - 70));
+    const y = toY(t.price);
+    if (y >= 0 && y <= height) {
+      ctx.beginPath();
+      ctx.arc(x, y, Math.min(8, Math.max(2, Math.sqrt(t.quantity))), 0, Math.PI * 2);
+      ctx.fillStyle = t.aggressorSide === 'BUY' ? 'rgba(255, 180, 40, 0.4)' : 'rgba(248, 81, 73, 0.4)';
+      ctx.fill();
+    }
+  }
+}
 
 function drawPersistentWalls(
   ctx: CanvasRenderingContext2D,

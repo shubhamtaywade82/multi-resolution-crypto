@@ -53,10 +53,14 @@ export const SignalPanel: React.FC<SignalPanelProps> = ({ signal, absorption }) 
         </div>
 
         {/* Confluence Gauge Bar with Thresholds */}
-        <div style={{ position: 'relative', height: '16px', background: 'var(--card-sub)', borderRadius: '3px', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', height: '20px', background: 'var(--card-sub)', borderRadius: '3px', overflow: 'hidden', border: '1px solid var(--border)' }}>
           <div style={{ position: 'absolute', left: '0', width: '20%', top: 0, bottom: 0, background: 'rgba(248, 81, 73, 0.25)' }} />
           <div style={{ position: 'absolute', right: '0', width: '20%', top: 0, bottom: 0, background: 'rgba(63, 185, 80, 0.25)' }} />
           <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'var(--border-sub)' }} />
+          <div style={{ position: 'absolute', left: '80%', top: 0, bottom: 0, width: '1px', background: 'var(--g)' }} />
+          <div style={{ position: 'absolute', left: '20%', top: 0, bottom: 0, width: '1px', background: 'var(--r)' }} />
+          <span style={{ position: 'absolute', right: '6px', top: '2px', fontSize: '8px', color: 'var(--g)', fontWeight: 600 }}>ENTER +6</span>
+          <span style={{ position: 'absolute', left: '6px', top: '2px', fontSize: '8px', color: 'var(--r)', fontWeight: 600 }}>ENTER -6</span>
           <div style={{
             position: 'absolute',
             left: `${markerPct}%`,
@@ -66,7 +70,7 @@ export const SignalPanel: React.FC<SignalPanelProps> = ({ signal, absorption }) 
             marginLeft: '-2px',
             background: smoothPts > 0 ? 'var(--g)' : smoothPts < 0 ? 'var(--r)' : 'var(--text)',
             borderRadius: '2px',
-            boxShadow: '0 0 6px rgba(255,255,255,0.4)',
+            boxShadow: '0 0 8px rgba(255,255,255,0.7)',
             transition: 'left 0.1s linear'
           }} />
         </div>
