@@ -1,8 +1,9 @@
 import React from 'react';
-import { StructureAnalysis } from '../types.ts';
+import { StructureAnalysis, Candle } from '../types.ts';
 
 interface StructureProps {
   structure: Record<string, StructureAnalysis>;
+  candles?: Record<string, Candle[]>;
 }
 
 const ROLES: Record<string, [string, string]> = {
@@ -16,7 +17,7 @@ const ROLES: Record<string, [string, string]> = {
 
 const ORDER = ['m1', 'm3', 'm5', 'm15', 'h1', 'h4'];
 
-export const StructureGrid: React.FC<StructureProps> = ({ structure }) => {
+export const StructureGrid: React.FC<StructureProps> = ({ structure, candles }) => {
   return (
     <div className="panel">
       <div className="panel-head">
@@ -37,6 +38,7 @@ export const StructureGrid: React.FC<StructureProps> = ({ structure }) => {
             key={k}
             roleInfo={ROLES[k]}
             data={structure[k]}
+            candleList={candles?.[k] ?? []}
           />
         ))}
       </div>
@@ -47,7 +49,8 @@ export const StructureGrid: React.FC<StructureProps> = ({ structure }) => {
 const StructureCard: React.FC<{
   roleInfo: [string, string];
   data?: StructureAnalysis;
-}> = ({ roleInfo, data }) => {
+  candleList: Candle[];
+}> = ({ roleInfo, data, candleList }) => {
   const [tf, role] = roleInfo;
 
   if (!data || !data.ok) {
@@ -140,6 +143,9 @@ const StructureCard: React.FC<{
         </div>
       )}
 
+      {/* Sparkline candle bars */}
+      <CandleSparkline candles={candleList} />
+
       {/* Forming progress bar */}
       <div style={{ height: '3px', background: 'var(--dim)', borderRadius: '2px', overflow: 'hidden', marginTop: '2px' }}>
         <div style={{
@@ -149,6 +155,36 @@ const StructureCard: React.FC<{
           transition: 'width 0.3s ease'
         }} />
       </div>
+    </div>
+  );
+};
+
+const CandleSparkline: React.FC<{ candles: Candle[] }> = ({ candles }) => {
+  if (!candles.length) return null;
+  const list = candles.slice(-24);
+  const hi = Math.max(...list.map(c => c.h));
+  const lo = Math.min(...list.map(c => c.l));
+  const rg = hi - lo || 1;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1px', height: '20px', marginTop: '4px' }}>
+      {list.map((c, i) => {
+        const up = c.c >= c.o;
+        const hgt = Math.max(2, ((c.h - c.l) / rg) * 20);
+        return (
+          <i
+            key={i}
+            style={{
+              flex: 1,
+              minWidth: '2px',
+              height: `${hgt}px`,
+              background: up ? 'rgba(63, 185, 80, 0.65)' : 'rgba(248, 81, 73, 0.65)',
+              borderRadius: '1px',
+              display: 'block'
+            }}
+          />
+        );
+      })}
     </div>
   );
 };

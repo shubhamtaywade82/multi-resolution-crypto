@@ -17,6 +17,7 @@ export interface StreamState {
   isSynced: boolean;
   serverTime: number;
   book: BookState | null;
+  candles: Record<string, Candle[]>;
   recentTrades: Trade[];
   structure: Record<string, StructureAnalysis>;
   matrix: WindowMetric[];
@@ -30,6 +31,7 @@ const INITIAL_STATE: StreamState = {
   isSynced: false,
   serverTime: Date.now(),
   book: null,
+  candles: {},
   recentTrades: [],
   structure: {},
   matrix: [],
@@ -59,6 +61,7 @@ export function useTradingStream(): StreamState {
           isSynced: true,
           serverTime: data.serverTime,
           book: data.book,
+          candles: data.candles || {},
           structure: data.structure,
           matrix: data.matrix,
           signal: data.signal,
