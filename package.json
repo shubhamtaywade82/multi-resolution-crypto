@@ -4,8 +4,11 @@
   "description": "Multi-Resolution Liquidity Cockpit with real Binance mainnet feeds",
   "type": "module",
   "scripts": {
-    "bridge": "tsx binance-bridge.ts",
-    "serve": "npx serve ."
+    "server": "tsx server/server.ts",
+    "ui:dev": "npm --prefix ui run dev",
+    "ui:build": "npm --prefix ui run build",
+    "ui:preview": "npm --prefix ui run preview",
+    "serve": "npx serve -s ui/dist -l 3000"
   },
   "dependencies": {
     "@nemesis-oss/binance-sdk": "file:../../sdks-and-clients/binance/binance-sdk",
