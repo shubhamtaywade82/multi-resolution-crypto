@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOLUSDT · Multi-Resolution Liquidity Cockpit</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-400-normal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-700-normal.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#05070a;--panel:#090d12;--panel2:#0c1117;--cell:#101821;--cell2:#131d27;
+  --bd:#18222d;--bd2:#22303e;--hot:#3d5a72;
+  --fg:#b8c4d0;--fg2:#7e8c9a;--dim:#4b5967;--mute:#33404c;
+  --g:#3fe08c;--r:#ff5d78;--a:#ffb428;--c:#3fd8ff;--p:#b58cff;--w:#e8eef4;
+}
+html,body{background:var(--bg);color:var(--fg);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.45}
+body{padding:7px;min-height:100vh}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:99;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.17) 0 1px,transparent 1px 3px);opacity:.45}
+.wrap{max-width:1760px;margin:0 auto}
+.box{border:1px solid var(--bd);background:var(--panel);margin-bottom:6px;position:relative}
+.box.hot{border-color:var(--hot)}
+.box.alarm{border-color:#7a2233;box-shadow:inset 0 0 0 1px rgba(255,93,120,.12)}
+.bt{position:absolute;top:-1px;left:10px;transform:translateY(-50%);background:var(--bg);
+  padding:0 6px;font-size:9.5px;letter-spacing:1.3px;color:var(--fg2);white-space:nowrap}
+.bt b{color:var(--c);font-weight:700}.bt .tg{color:var(--mute)}
+.br{position:absolute;top:-1px;right:10px;transform:translateY(-50%);background:var(--bg);
+  padding:0 6px;font-size:9px;letter-spacing:.8px;color:var(--dim);white-space:nowrap}
+.bd{padding:10px 10px 9px}
+.k{font-size:8.5px;letter-spacing:1.2px;color:var(--mute);text-transform:uppercase;white-space:nowrap}
+.v{font-size:13px;font-weight:700;white-space:nowrap}.v.sm{font-size:11px;font-weight:400}
+.g{color:var(--g)}.r{color:var(--r)}.a{color:var(--a)}.c{color:var(--c)}.p{color:var(--p)}.d{color:var(--fg2)}.m{color:var(--dim)}.w{color:var(--w)}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;border:1px solid var(--bd2);background:var(--panel2);margin-bottom:6px}
+.top .sg{padding:6px 11px;border-right:1px solid var(--bd);display:flex;flex-direction:column;gap:1px}
+.top .sg:last-child{border-right:0}.grow{flex:1}
+.title{font-size:13.5px;font-weight:700;color:var(--c);letter-spacing:.5px;text-shadow:0 0 12px rgba(63,216,255,.3)}
+.pill{display:inline-block;padding:0 5px;border:1px solid currentColor;font-size:9px;letter-spacing:1px}
+.warn{border:1px solid #6b4d10;background:#241a04;color:var(--a);padding:5px 10px;font-size:10px;margin-bottom:6px;line-height:1.5}
+
+/* rows */
+.row{display:grid;gap:6px}
+.r3{grid-template-columns:330px 1fr 400px}
+.r3b{grid-template-columns:1fr 380px 320px}
+.r2{grid-template-columns:1fr 1fr}
+@media(max-width:1420px){.r3,.r3b{grid-template-columns:1fr 1fr}.r3>:nth-child(3),.r3b>:nth-child(3){grid-column:1/-1}}
+@media(max-width:920px){.r3,.r3b,.r2{grid-template-columns:1fr}}
+
+/* cadence */
+.cad{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+@media(max-width:1100px){.cad{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.cad{grid-template-columns:1fr}}
+.cd{border:1px solid var(--bd);background:var(--cell);padding:6px 8px}
+.cd-h{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.cd-n{font-size:9.5px;letter-spacing:1px;color:var(--fg)}
+.cd-s{font-size:9px;color:var(--g)}.cd-s.bad{color:var(--r)}
+.cd-l{font-size:9.5px;color:var(--dim);margin-top:2px;display:flex;justify-content:space-between;gap:6px}
+.meter{height:3px;background:#080c11;border:1px solid var(--bd);margin-top:5px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--c);transition:width .3s linear}
+
+/* kv */
+.kv{display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px dotted #151e28;font-size:11px}
+.kv:last-child{border-bottom:0}.kv .kk{color:var(--fg2)}.kv .vv{font-weight:700;text-align:right}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 13px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 11px}
+
+/* ladder */
+.lad{font-size:10.5px}
+.lr{display:flex;align-items:center;position:relative;height:15px}
+.lr .bar{position:absolute;top:1px;bottom:1px;opacity:.2}
+.lr.b .bar{right:0;background:var(--g)}.lr.a .bar{left:0;background:var(--r)}
+.lr .pp{width:60px;text-align:right;padding-right:6px;position:relative;z-index:1;font-weight:700}
+.lr.a .pp{text-align:left;padding-left:6px}
+.lr .qq{flex:1;text-align:right;padding-right:5px;position:relative;z-index:1;color:var(--fg2)}
+.lr.a .qq{text-align:left;padding-left:5px}
+.lr .wm{width:26px;text-align:center;position:relative;z-index:1;color:var(--p);font-size:8.5px;letter-spacing:-1px}
+.lsep{display:flex;justify-content:space-between;padding:3px 4px;background:var(--cell);
+  border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);font-size:10px;color:var(--a)}
+
+/* tape */
+.tape{font-size:10px;max-height:150px;overflow:hidden}
+.tr{display:flex;gap:6px;padding:1px 4px;border-bottom:1px solid #0d131a}
+.tr .t1{color:var(--mute);width:56px}.tr .t2{width:12px;text-align:center}
+.tr .t3{width:54px;text-align:right;font-weight:700}.tr .t4{width:52px;text-align:right;color:var(--fg2)}
+.tr .t5{flex:1;text-align:right;color:var(--dim)}
+
+/* matrix */
+table.mx{width:100%;border-collapse:collapse;font-size:10.5px}
+table.mx th{font-size:8.5px;letter-spacing:1px;color:var(--mute);text-transform:uppercase;
+  text-align:right;padding:3px 5px;border-bottom:1px solid var(--bd2);font-weight:400;white-space:nowrap}
+table.mx th:first-child{text-align:left}
+table.mx td{padding:3px 5px;text-align:right;border-bottom:1px solid #101820;white-space:nowrap}
+table.mx td:first-child{text-align:left;color:var(--fg2);letter-spacing:.6px}
+table.mx tr.hi td{background:#0f1a24}
+table.mx td .sg2{display:inline-block;width:12px;text-align:center}
+.verdict{margin-top:8px;border:1px solid var(--bd2);background:var(--cell);padding:7px 9px;font-size:11px;line-height:1.5}
+.verdict .vh{font-size:9px;letter-spacing:1.4px;color:var(--mute);text-transform:uppercase;margin-bottom:3px}
+
+/* heat */
+.hm{position:relative;height:330px;background:#04060a;border:1px solid var(--bd)}
+#heat{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+#ovl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.hmleg{position:absolute;left:7px;bottom:6px;display:flex;flex-wrap:wrap;gap:11px;font-size:9px;color:var(--fg2);
+  background:rgba(5,7,10,.78);padding:3px 6px;border:1px solid var(--bd);pointer-events:none;max-width:78%}
+.sw{display:inline-block;width:9px;height:9px;vertical-align:-1px;margin-right:4px}
+.hmnote{position:absolute;right:7px;top:6px;font-size:9px;color:var(--dim);background:rgba(5,7,10,.78);
+  padding:2px 6px;border:1px solid var(--bd);pointer-events:none;text-align:right}
+.viewbar{display:flex;border:1px solid var(--bd);background:var(--cell);overflow:hidden;margin-bottom:7px}
+.viewbar button{flex:1;background:transparent;border:0;border-right:1px solid var(--bd);color:var(--fg2);
+  font-family:inherit;font-size:10.5px;padding:5px 0;cursor:pointer;letter-spacing:1px;transition:.15s}
+.viewbar button:last-child{border-right:0}
+.viewbar button:hover{background:#152029;color:var(--fg)}
+.viewbar button.on{background:#0a3340;color:var(--c);font-weight:700;box-shadow:inset 0 -2px 0 var(--c)}
+
+/* structure */
+.tf{border:1px solid var(--bd);background:var(--cell);padding:6px 8px;margin-bottom:6px}
+.tf-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}
+.tf-n{font-size:10px;letter-spacing:1.1px;color:var(--fg)}
+.tf-role{font-size:8.5px;color:var(--mute);letter-spacing:.8px}
+.tf-b{font-size:10px;padding:1px 0;display:flex;justify-content:space-between;gap:8px}
+.tf-b .x{color:var(--fg2)}.tf-b .y{font-weight:700;text-align:right}
+.spark{display:flex;align-items:flex-end;gap:1px;height:26px;margin-top:4px}
+.spark i{flex:1;min-width:2px;display:block}
+
+/* signal */
+.sig{display:grid;grid-template-columns:200px 1fr;gap:10px}
+@media(max-width:760px){.sig{grid-template-columns:1fr}}
+.sb{border:2px solid var(--bd2);background:var(--cell);padding:9px;text-align:center}
+.sb .sl{font-size:8.5px;letter-spacing:1.6px;color:var(--mute)}
+.sb .sv{font-size:25px;font-weight:700;letter-spacing:2px;line-height:1.2;margin:2px 0}
+.sb .sa{font-size:9px;color:var(--fg2);line-height:1.35}
+.pts{text-align:center;margin-top:8px}
+.pts .pv{font-size:27px;font-weight:700;letter-spacing:1px}
+.pts .pm{font-size:9px;color:var(--mute)}
+.pbar{height:22px;background:#080c11;border:1px solid var(--bd);position:relative;margin:5px 0 3px;overflow:hidden}
+.pbar .zn{position:absolute;top:0;bottom:0;opacity:.15}
+.pbar .mk{position:absolute;top:0;bottom:0;width:2px;background:var(--w);transition:left .5s ease}
+.pbar .th{position:absolute;top:0;bottom:0;width:1px;background:var(--hot)}
+.pbar .lb{position:absolute;font-size:8px;color:var(--fg2)}
+.cp{display:flex;justify-content:space-between;gap:8px;font-size:10px;padding:2px 0;border-bottom:1px dotted #151e28}
+.cp:last-child{border-bottom:0}
+.cp .cn{color:var(--fg2);flex:1}
+.cp .cd2{width:44px;text-align:right;font-weight:700}
+.cp .cw{width:74px;text-align:right;color:var(--mute);font-size:9px}
+.ev{font-size:10px;padding:2.5px 0;border-bottom:1px dotted #151e28;display:flex;gap:7px;align-items:flex-start}
+.ev:last-child{border-bottom:0}
+.ev .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.ev .et{color:var(--fg2);flex:1}.ev .et b{color:var(--fg);font-weight:700}
+.ev .es{font-size:9px;color:var(--mute);white-space:nowrap}
+
+/* risk / exec */
+.rl{display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2.5px 0}
+.breach{border:1px solid #7a2233;background:#2a0d16;padding:6px 8px;text-align:center;font-size:11px;color:var(--r);font-weight:700;letter-spacing:.8px;margin-top:6px}
+.okb{border:1px solid var(--bd);background:var(--cell);padding:6px 8px;text-align:center;font-size:11px;color:var(--g);margin-top:6px}
+.dist{height:8px;background:#080c11;border:1px solid var(--bd);position:relative;margin-top:4px}
+.dist i{position:absolute;top:0;bottom:0;background:var(--a);opacity:.5}
+.dist u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--w);text-decoration:none}
+input[type=number]{background:#060a0e;border:1px solid var(--bd2);color:var(--fg);font-family:inherit;font-size:11px;padding:2px 5px;width:66px}
+select{background:#060a0e;border:1px solid var(--bd2);color:var(--fg);font-family:inherit;font-size:11px;padding:2px 4px}
+input:focus,select:focus{outline:0;border-color:var(--c)}
+.tog{display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;color:var(--fg2);user-select:none;margin-right:12px}
+.tog i{width:9px;height:9px;border:1px solid var(--bd2);display:inline-block;font-style:normal;text-align:center;line-height:8px;font-size:8px;color:var(--bg)}
+.tog.on i{background:var(--g);border-color:var(--g)}.tog.on{color:var(--fg)}
+.ctl{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;border:1px solid var(--bd);background:var(--cell);padding:6px 9px;margin-bottom:6px}
+
+/* log */
+.log{max-height:172px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bd2) transparent}
+.log::-webkit-scrollbar{width:5px}.log::-webkit-scrollbar-thumb{background:var(--bd2)}
+.le{display:flex;gap:8px;padding:2.5px 4px;font-size:10px;border-bottom:1px solid #0d131a;animation:fi .22s ease}
+@keyframes fi{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:none}}
+.le .lt{color:var(--mute);width:72px;flex-shrink:0}.le .li{width:13px;text-align:center;flex-shrink:0}
+.le .lx{color:var(--fg2);flex:1}.le .lx b{color:var(--fg);font-weight:700}
+.le .lw{width:52px;text-align:right;color:var(--mute);flex-shrink:0}
+.foot{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;border:1px solid var(--bd);
+  background:var(--panel);padding:6px 10px;font-size:9.5px;color:var(--dim)}
+.foot kbd{background:var(--cell);border:1px solid var(--bd2);padding:0 4px;color:var(--fg2);font-family:inherit;font-size:9px}
+#boot{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:10px;color:var(--c);font-size:12px;letter-spacing:1.5px}
+#boot .bl{color:var(--dim);font-size:10px;letter-spacing:.6px}
+</style>
+</head>
+<body>
+<div id="boot"><div>▸ INITIALISING COLLECTORS</div><div class="bl" id="bootMsg">synthetic pre-roll + warmup…</div></div>
+
+<div class="wrap">
+
+  <!-- ══ TOP ══ -->
+  <div class="top">
+    <div class="sg"><span class="k">Cockpit</span><span class="title">SOLUSDT ▸ MULTI-RESOLUTION LIQUIDITY</span></div>
+    <div class="sg"><span class="k">Feed source</span><span class="v sm a">◈ SIM ADAPTER <span class="m">(binance ws: not connected)</span></span></div>
+    <div class="sg"><span class="k">Mode</span><span class="v sm"><span class="pill a">PAPER</span></span></div>
+    <div class="sg grow"><span class="k">Sim clock</span><span class="v sm" id="clk">—</span></div>
+    <div class="sg"><span class="k">Speed</span><span class="v sm" id="spd">30×</span></div>
+    <div class="sg"><span class="k">Depth seq</span><span class="v sm" id="seq">0</span></div>
+    <div class="sg"><span class="k">Ingest latency p50/p95</span><span class="v sm" id="latm">—</span></div>
+    <div class="sg"><span class="k">Book integrity</span><span class="v sm" id="bkst">—</span></div>
+  </div>
+
+  <div class="warn">
+    ⚠ <b>DATA PROVENANCE.</b> No Binance WebSocket is attached. Every trade, depth observation, wall, absorption event,
+    latency sample and price below is produced by a local <b>synthetic feed adapter</b> (regime-driven). The adapter sits behind
+    one normalization boundary (<code>Adapter.onTrade / onDepth / onBookTicker / onKline</code>) so it can be replaced by
+    <b>solusdt@depth@100ms</b> · <b>solusdt@aggTrade</b> · <b>solusdt@bookTicker</b> · <b>solusdt@kline_1m</b> without touching collectors,
+    metrics or the state machine. <b>Confluence points are not a calibrated probability and this build must not be used to evaluate signal quality</b> —
+    that requires recorded live depth/trade history. Nothing here is randomized per frame: all displayed metrics are computed from collected events.
+  </div>
+
+  <!-- ══ CADENCE / RESOLUTION ══ -->
+  <div class="box">
+    <div class="bt"><b>┤</b> CADENCE &amp; RESOLUTION <span class="tg">· ingest at source rate · render throttled · decide at 1 s</span> <b>├</b></div>
+    <div class="bd">
+      <div class="cad">
+        <div class="cd">
+          <div class="cd-h"><span class="cd-n">INGEST · L0</span><span class="cd-s" id="c0s">● OK</span></div>
+          <div class="cd-l"><span>depth 100–250 ms · aggTrade event · kline 250 ms</span></div>
+          <div class="cd-l"><span>measured</span><span id="c0r">— ev/s</span></div>
+          <div class="meter"><i id="c0m" style="width:100%"></i></div>
+        </div>
+        <div class="cd">
+          <div class="cd-h"><span class="cd-n">RENDER · L1 MICRO</span><span class="cd-s" id="c1s">● 4 fps</span></div>
+          <div class="cd-l"><span>throttled 250 ms · windows 5s / 30s / 2m</span></div>
+          <div class="cd-l"><span>measured fps</span><span id="c1r">—</span></div>
+          <div class="meter"><i id="c1m" style="width:100%"></i></div>
+        </div>
+        <div class="cd">
+          <div class="cd-h"><span class="cd-n">SUMMARIZE · L2 FLOW</span><span class="cd-s" id="c2s">● 1 s</span></div>
+          <div class="cd-l"><span>rolling 5s / 30s / 2m / 5m + OFI incremental</span></div>
+          <div class="cd-l"><span>5m window fill</span><span id="c2r">—</span></div>
+          <div class="meter"><i id="c2m" style="width:0%"></i></div>
+        </div>
+        <div class="cd">
+          <div class="cd-h"><span class="cd-n">STRUCTURE · L3/L4</span><span class="cd-s" id="c3s">● on close</span></div>
+          <div class="cd-l"><span>1m trigger · 3m/5m setup · 15m confirm · 1h ctx · 4h opt</span></div>
+          <div class="cd-l"><span>1m forming</span><span id="c3r">—</span></div>
+          <div class="meter"><i id="c3m" style="width:0%;background:var(--p)"></i></div>
+        </div>
+      </div>
+      <div class="ctl" style="margin:7px 0 0">
+        <span class="k">controls</span>
+        <span class="tog on" id="tSmooth"><i>x</i>ladder visual smoothing (α .35)</span>
+        <span class="tog" id="t4h"><i></i>4h filter blocks intraday</span>
+        <span class="tog" id="tCT"><i></i>allow countertrend vs 1h</span>
+        <span style="margin-left:auto" class="k">micro-trigger persistence</span>
+        <input type="number" id="inPersist" value="7" min="3" max="20" step="1" style="width:52px">
+        <span class="k">s (test, do not assume optimal)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW: L1 / MATRIX / STRUCTURE ══ -->
+  <div class="row r3">
+
+    <!-- L1 -->
+    <div class="box">
+      <div class="bt"><b>┤</b> L1 · LIVE MICROSTRUCTURE <b>├</b></div>
+      <div class="br">render 250 ms · non-decisional</div>
+      <div class="bd">
+        <div class="g3" style="margin-bottom:7px">
+          <div><div class="k">mid</div><div class="v c" id="mid">—</div></div>
+          <div><div class="k">spread</div><div class="v a" id="sprd">—</div><div class="k" id="sprdb">—</div></div>
+          <div><div class="k">best b/a</div><div class="v sm" id="bbo">—</div></div>
+        </div>
+        <div class="k" style="margin-bottom:2px">top-of-book imbalance · instantaneous + summaries</div>
+        <div class="kv"><span class="kk">instant (L1)</span><span class="vv" id="imb0">—</span></div>
+        <div class="kv"><span class="kk">5s mean</span><span class="vv" id="imb5">—</span></div>
+        <div class="kv"><span class="kk">30s mean</span><span class="vv" id="imb30">—</span></div>
+        <div class="kv"><span class="kk">10-level depth ratio</span><span class="vv" id="imb10">—</span></div>
+        <div class="lad" id="ladder" style="margin-top:7px"></div>
+        <div class="k" style="margin:8px 0 3px">trade tape · raw ring (120 s sim)</div>
+        <div class="tape" id="tape"></div>
+      </div>
+    </div>
+
+    <!-- MATRIX -->
+    <div class="box">
+      <div class="bt"><b>┤</b> L2 · MULTI-RESOLUTION FLOW MATRIX <span class="tg">— noise filter: short vs medium vs long computed together</span> <b>├</b></div>
+      <div class="br">summarize 1 s</div>
+      <div class="bd">
+        <table class="mx" id="mx">
+          <thead><tr>
+            <th>window</th><th>src</th><th>trades</th><th>OFI norm</th><th>CVD</th><th>buy %</th>
+            <th>displ bps</th><th>RV bps</th><th>efficiency</th><th>fill</th><th>read</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="verdict">
+          <div class="vh">noise-filter interpretation</div>
+          <div id="verd">—</div>
+        </div>
+
+        <div class="g2" style="margin-top:9px">
+          <div>
+            <div class="k" style="margin-bottom:3px">absorption · event window <span id="abWin">15 s</span> · needs <span id="abNeed">3</span> consecutive</div>
+            <div id="absBox"></div>
+          </div>
+          <div>
+            <div class="k" style="margin-bottom:3px">liquidity persistence · displayed vs persisted</div>
+            <div id="persBox"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STRUCTURE -->
+    <div class="box">
+      <div class="bt"><b>┤</b> L3/L4 · PRICE STRUCTURE <span class="tg">— closed candles only for confirmation</span> <b>├</b></div>
+      <div class="br" id="stBr">on candle close</div>
+      <div class="bd" id="structBox"></div>
+    </div>
+  </div>
+
+  <!-- ══ HEATMAP ══ -->
+  <div class="box">
+    <div class="bt"><b>┤</b> LIQUIDITY PRESSURE FIELD <span class="tg">— depth observations bucketed by TIME × PRICE · historical, never regenerated</span> <b>├</b></div>
+    <div class="br" id="hmTag">—</div>
+    <div class="bd">
+      <div class="viewbar" id="viewBar">
+        <button data-v="5m" class="on">5m · detail</button>
+        <button data-v="30m">30m · persistence</button>
+        <button data-v="2h">2h · migration</button>
+      </div>
+      <div class="hm">
+        <canvas id="heat"></canvas><canvas id="ovl"></canvas>
+        <div class="hmnote" id="hmNote">norm —</div>
+        <div class="hmleg">
+          <span><i class="sw" style="background:rgba(63,224,140,.9)"></i>bid depth</span>
+          <span><i class="sw" style="background:rgba(255,93,120,.9)"></i>ask depth</span>
+          <span><i class="sw" style="background:#dff3ff"></i>persisted ≥ <span id="persMin">6</span> obs</span>
+          <span><i class="sw" style="background:var(--p)"></i>wall ≥30 s life</span>
+          <span><i class="sw" style="background:var(--a)"></i>trade burst</span>
+          <span><i class="sw" style="background:var(--w)"></i>price path</span>
+          <span><i class="sw" style="background:rgba(63,216,255,.55)"></i>current book profile (right edge)</span>
+        </div>
+      </div>
+      <div class="g2" style="margin-top:8px">
+        <div><div class="k" style="margin-bottom:3px">bid-side persistent levels (peak × persistence)</div><div id="persBid"></div></div>
+        <div><div class="k" style="margin-bottom:3px">ask-side persistent levels</div><div id="persAsk"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW: SIGNAL / EXEC / RISK ══ -->
+  <div class="row r3b">
+    <div class="box hot">
+      <div class="bt"><b>┤</b> SIGNAL STATE MACHINE <span class="tg">— confluence POINTS, not probability</span> <b>├</b></div>
+      <div class="br" id="sigAge">age —</div>
+      <div class="bd">
+        <div class="sig">
+          <div>
+            <div class="sb" id="sigBox">
+              <div class="sl">STATE</div><div class="sv" id="sigState">NO_TRADE</div><div class="sa" id="sigSub">awaiting evidence</div>
+            </div>
+            <div class="pts">
+              <div class="k">confluence points</div>
+              <div class="pv" id="sigPts">+0</div>
+              <div class="pm" id="sigPtsM">of ±14 · entry ≥9 · exit ≤5</div>
+            </div>
+            <div class="pbar" id="pbar">
+              <div class="zn" id="zL" style="left:82%;right:0;background:var(--g)"></div>
+              <div class="zn" id="zS" style="left:0;width:18%;background:var(--r)"></div>
+              <div class="th" style="left:82%"></div><div class="th" style="left:68%"></div>
+              <div class="th" style="left:32%"></div><div class="th" style="left:18%"></div>
+              <div class="lb" style="left:83%;top:1px">ENTER 9</div>
+              <div class="lb" style="left:69%;bottom:1px">EXIT 5</div>
+              <div class="mk" id="pMk" style="left:50%"></div>
+            </div>
+            <div class="k" style="margin-top:8px">last state change</div>
+            <div class="kv"><span class="kk">at</span><span class="vv d" id="sigChg">—</span></div>
+            <div class="kv"><span class="kk">data freshness</span><span class="vv" id="sigFresh">—</span></div>
+          </div>
+          <div>
+            <div class="k" style="margin-bottom:4px">confluence ledger · each line is a measured component</div>
+            <div id="ledger"></div>
+            <div class="k" style="margin:9px 0 4px">confirmation gates</div>
+            <div id="gates"></div>
+            <div class="k" style="margin:9px 0 4px">evidence</div>
+            <div id="evid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="bt"><b>┤</b> EXECUTION FRICTION <span class="tg">— ACTUAL vs ESTIMATE separated</span> <b>├</b></div>
+      <div class="br">recompute on material book change</div>
+      <div class="bd">
+        <div style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <span class="k">size</span><input type="number" id="inSize" value="10" step="1" min="0.1">
+          <span class="k">fee bps</span><input type="number" id="inFee" value="4" step="0.5" min="0">
+          <span class="k">side</span><select id="inSide"><option value="buy">BUY</option><option value="sell">SELL</option></select>
+        </div>
+        <div class="k g">▸ ACTUAL — measured from book &amp; clock</div>
+        <div class="kv"><span class="kk">best bid / ask</span><span class="vv" id="xBa">—</span></div>
+        <div class="kv"><span class="kk">spread</span><span class="vv" id="xSprd">—</span></div>
+        <div class="kv"><span class="kk">depth age</span><span class="vv" id="xAge">—</span></div>
+        <div class="kv"><span class="kk">seq gaps detected</span><span class="vv" id="xGap">—</span></div>
+        <div class="k a" style="margin-top:8px">▸ ESTIMATE — depth-walk simulation for this size</div>
+        <div class="kv"><span class="kk">levels walked / unfilled</span><span class="vv d" id="xLv">—</span></div>
+        <div class="kv"><span class="kk">fill VWAP</span><span class="vv" id="xVwap">—</span></div>
+        <div class="kv"><span class="kk">slippage vs mid</span><span class="vv" id="xSlip">—</span></div>
+        <div class="kv"><span class="kk">half-spread + fee×2</span><span class="vv d" id="xFee">—</span></div>
+        <div class="kv" style="border-top:1px solid var(--bd2);margin-top:4px;padding-top:5px"><span class="kk">TOTAL round trip</span><span class="vv" id="xTot">—</span></div>
+        <div class="kv"><span class="kk">vs 5m range budget</span><span class="vv" id="xBud">—</span></div>
+        <div id="xStat" class="okb">—</div>
+      </div>
+    </div>
+
+    <div class="box" id="riskBox">
+      <div class="bt"><b>┤</b> RISK GUARD <span class="tg">— IMMEDIATE PATH · never waits for a close</span> <b>├</b></div>
+      <div class="br">100 ms</div>
+      <div class="bd">
+        <div class="kv"><span class="kk">paper position</span><span class="vv" id="rkPos">FLAT</span></div>
+        <div class="rl"><span class="k">entry</span><span class="v sm" id="rkEntry">—</span></div>
+        <div class="rl"><span class="k">invalidation (structure)</span><span class="v sm a" id="rkInv">—</span></div>
+        <div class="rl"><span class="k">stop</span><span class="v sm r" id="rkStop">—</span></div>
+        <div class="rl"><span class="k">distance to stop</span><span class="v sm" id="rkDist">—</span></div>
+        <div class="dist"><i id="rkBar" style="left:0;width:0"></i><u id="rkMk" style="left:100%"></u></div>
+        <div class="rl" style="margin-top:7px"><span class="k">open pnl</span><span class="v sm" id="rkPnl">—</span></div>
+        <div class="rl"><span class="k">max adverse excursion</span><span class="v sm d" id="rkMae">—</span></div>
+        <div id="rkState" class="okb">● MONITORING</div>
+        <div class="k" style="margin-top:9px">data-integrity interlock</div>
+        <div class="kv"><span class="kk">new entries</span><span class="vv" id="rkFreeze">ENABLED</span></div>
+        <div class="kv"><span class="kk">reason</span><span class="vv d" id="rkWhy" style="font-weight:400">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ LOG ══ -->
+  <div class="box">
+    <div class="bt"><b>┤</b> CONFIRMED EVENT LOG <span class="tg">— events that survived their confirmation window · state changes · integrity</span> <b>├</b></div>
+    <div class="br" id="logN">0</div>
+    <div class="bd"><div class="log" id="log"></div></div>
+  </div>
+
+  <div class="foot">
+    <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> heat view · <kbd>[</kbd><kbd>]</kbd> speed · <kbd>z</kbd> zoom · <kbd>s</kbd> smoothing · <kbd>4</kbd> 4h filter · <kbd>x</kbd> countertrend · <kbd>f</kbd> inject fault · <kbd>space</kbd> pause · <kbd>r</kbd> reset</span>
+    <span id="footStat">—</span>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════════════════════════════════════
+   MULTI-RESOLUTION LIQUIDITY COCKPIT
+   ingest (source cadence) → validate → local book → rolling windows
+   → price structure → 1h/4h context → 1 s candidate eval → persistence +
+   trigger + hysteresis → LONG / SHORT / NO_TRADE
+   Risk + data-integrity run on a separate immediate path.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const CFG = {
+  speed: 30, paused: false, heatView: '5m', zoom: 1,
+  smoothing: true, use4h: false, countertrend: false,
+  persistSec: 7, absWinMs: 15000, absNeed: 3,
+  staleMs: 2500, entryPts: 9, exitPts: 5, maxPts: 14,
+  persMinObs: 6
+};
+const HEAT = { cols: 150, ticks: 220, step: 0.02 };
+const VIEW_SPAN = { '5m': 300000, '30m': 1800000, '2h': 7200000 };
+const LADDER_N = 11, IMB_LV = 10;
+const FLOW_WINDOWS = [
+  { ms: 5000,   label: '5s',  role: 'burst' },
+  { ms: 30000,  label: '30s', role: 'short' },
+  { ms: 120000, label: '2m',  role: 'medium' },
+  { ms: 300000, label: '5m',  role: 'sustained' }
+];
+
+/* ── helpers ─────────────────────────────────────────────────────────── */
+const clamp=(v,a,b)=>v<a?a:v>b?b:v, r2=v=>Math.round(v*100)/100;
+const sgn=v=>v>0?'+':v<0?'−':'±';
+const fmt=(v,d=2)=>(v==null||!isFinite(v))?'—':v.toFixed(d);
+const fmtN=v=>(v==null||!isFinite(v))?'—':Math.abs(v)>=1000?(v/1000).toFixed(1)+'k':Math.abs(v)>=100?v.toFixed(0):v.toFixed(1);
+const hhmmss=t=>new Date(t).toTimeString().slice(0,8);
+const cls=v=>v>0?'g':v<0?'r':'d';
+const ema=(p,n,a)=>p==null?n:p+a*(n-p);
+const $=id=>document.getElementById(id);
+
+/* ══ 1. COLLECTORS ═══════════════════════════════════════════════════ */
+class RollingWindow{
+  constructor(ms){this.ms=ms;this.events=[];}
+  add(e){this.events.push(e);this.prune(e.timestamp);}
+  prune(now){const c=now-this.ms;let i=0;while(i<this.events.length&&this.events[i].timestamp<c)i++;if(i)this.events.splice(0,i);}
+  snapshot(now){this.prune(now);return this.events;}
+}
+class TradeBuckets{
+  constructor(b=1000,max=8200){this.b=b;this.max=max;this.map=new Map();this.order=[];}
+  add(t,p,q,s){
+    const k=Math.floor(t/this.b);let o=this.map.get(k);
+    if(!o){o={k,t:k*this.b,buy:0,sell:0,n:0,o:p,h:p,l:p,c:p};this.map.set(k,o);this.order.push(o);}
+    if(s>0)o.buy+=q;else o.sell+=q;o.n++;
+    if(p>o.h)o.h=p;if(p<o.l)o.l=p;o.c=p;
+  }
+  prune(now){const c=now-this.max*this.b;let i=0;while(i<this.order.length&&this.order[i].t<c)i++;
+    if(i){for(let j=0;j<i;j++)this.map.delete(this.order[j].k);this.order.splice(0,i);}}
+  range(f,t){const o=[];for(let i=0;i<this.order.length;i++){const b=this.order[i];if(b.t>=f&&b.t<t)o.push(b);else if(b.t>=t)break;}return o;}
+  count(f,t){let n=0;const r=this.range(f,t);for(const b of r)n+=b.n;return n;}
+}
+class TopOfBookRing{
+  constructor(maxMs=25*60000){this.maxMs=maxMs;this.a=[];}
+  add(t,bp,bq,ap,aq,i0,i10){this.a.push({t,bp,bq,ap,aq,i0,i10});
+    const c=t-this.maxMs;let i=0;while(i<this.a.length&&this.a[i].t<c)i++;if(i)this.a.splice(0,i);}
+  ofi(f,t){let s=0,p=null;
+    for(let i=0;i<this.a.length;i++){const x=this.a[i];
+      if(x.t<f){p=x;continue;} if(x.t>=t)break;
+      if(p){let dB,dA;
+        if(x.bp>p.bp)dB=x.bq;else if(x.bp===p.bp)dB=x.bq-p.bq;else dB=-p.bq;
+        if(x.ap<p.ap)dA=x.aq;else if(x.ap===p.ap)dA=x.aq-p.aq;else dA=-p.aq;
+        s+=dB-dA;}
+      p=x;}
+    return s;}
+  imbMean(f,t){let s=0,n=0;for(let i=0;i<this.a.length;i++){const x=this.a[i];if(x.t<f)continue;if(x.t>=t)break;s+=x.i0;n++;}return n?s/n:0;}
+  last(){return this.a.length?this.a[this.a.length-1]:null;}
+}
+/* depth store: Int16 quantized qty + Uint8 persistence-run length per cell */
+class DepthHeatStore{
+  constructor(){this.anchor=null;this.n=HEAT.ticks;this.cols=[];this.maxCols=7400;this.run=new Map();}
+  _i(p){return clamp(Math.round((p-(this.anchor-(this.n/2)*HEAT.step))/HEAT.step),0,this.n-1);}
+  reanchor(mid){
+    if(this.anchor===null){this.anchor=mid;return;}
+    if(Math.abs(mid-this.anchor)>HEAT.step*this.n*0.28){
+      const sh=Math.round((mid-this.anchor)/HEAT.step);
+      for(const c of this.cols){c.q=DepthHeatStore.sh(c.q,-sh,this.n);c.ps=DepthHeatStore.shU(c.ps,-sh,this.n);}
+      this.anchor+=sh*HEAT.step;
+    }
+  }
+  static sh(a,k,n){const o=new Int16Array(n*2);for(let i=0;i<n*2;i++){const j=i+k*2;if(j>=0&&j<n*2){o[j]=a[i];o[j+1]=a[i+1];}}return o;}
+  static shU(a,k,n){const o=new Uint8Array(n*2);for(let i=0;i<n*2;i++){const j=i+k*2;if(j>=0&&j<n*2){o[j]=a[i];o[j+1]=a[i+1];}}return o;}
+  add(t,book,mid){
+    this.reanchor(mid);
+    const q=new Int16Array(this.n*2), ps=new Uint8Array(this.n*2);
+    const put=(lv,side)=>{
+      const i=this._i(lv.p);if(i<0||i>=this.n)return;
+      const o=i*2+(side==='bid'?0:1);
+      const qi=clamp(Math.round(lv.q),0,32000);
+      if(qi>q[o])q[o]=qi;
+      const rk=(side==='bid'?'b':'a')+i;
+      let r=this.run.get(rk);
+      if(qi>=CFG.persMinObs*8){ if(!r)r={n:0}; r.n=Math.min(255,r.n+1); this.run.set(rk,r); }
+      else this.run.delete(rk);
+      ps[o]=r?r.n:0;
+    };
+    for(const l of book.bids)put(l,'bid');
+    for(const l of book.asks)put(l,'ask');
+    this.cols.push({t,q,ps,mid});
+    if(this.cols.length>this.maxCols)this.cols.splice(0,this.cols.length-this.maxCols);
+  }
+  bucket(span,now){
+    const from=now-span*HEAT.cols,to=now;
+    const out=new Array(HEAT.cols).fill(null);const norm=new Float32Array(HEAT.cols);
+    for(const c of this.cols){
+      if(c.t<from||c.t>=to)continue;
+      const ci=clamp(Math.floor((c.t-from)/span),0,HEAT.cols-1);
+      let o=out[ci];
+      if(!o){o={q:new Int16Array(this.n*2),ps:new Uint8Array(this.n*2),n:0,mid:0};out[ci]=o;}
+      for(let i=0;i<this.n*2;i++){if(c.q[i]>o.q[i])o.q[i]=c.q[i];if(c.ps[i]>o.ps[i])o.ps[i]=c.ps[i];}
+      o.mid+=c.mid;o.n++;
+      let mx=0;for(let i=0;i<this.n*2;i++)if(c.q[i]>mx)mx=c.q[i];
+      if(mx>norm[ci])norm[ci]=mx;
+    }
+    for(const o of out)if(o&&o.n)o.mid/=o.n;
+    return{cols:out,from,to,norm};
+  }
+}
+/* wall / persistence tracker — O(1) lookup by price key */
+class WallTracker{
+  constructor(tick=0.01,minQty=110){this.tick=tick;this.minQty=minQty;this.m=new Map();this.snaps=0;}
+  k(p,s){return (s==='bid'?'b':'a')+Math.round(p/this.tick);}
+  observe(book,t){
+    this.snaps++;const seen=[];
+    const proc=(lv,side)=>{
+      const key=this.k(lv.p,side);seen.push(key);
+      let r=this.m.get(key);
+      if(!r){r={p:lv.p,side,first:t,last:t,snaps:0,peak:0,sum:0,replen:0,prev:0,state:'ACTIVE',goneAt:0,traded:0,q:lv.q};this.m.set(key,r);}
+      r.last=t;r.snaps++;r.sum+=lv.q;r.q=lv.q;
+      if(lv.q>r.peak)r.peak=lv.q;
+      if(lv.q>r.prev+0.5)r.replen++;
+      r.prev=lv.q;if(r.state==='GONE')r.state='ACTIVE';
+    };
+    for(const l of book.bids)proc(l,'bid');
+    for(const l of book.asks)proc(l,'ask');
+    for(const[key,r]of this.m){
+      if(r.state==='ACTIVE'&&!seen.includes(key)){r.state='GONE';r.goneAt=t;}
+      else if(r.state==='GONE'&&t-r.goneAt>90000)this.m.delete(key);
+    }
+  }
+  onTrade(price,qty,agg){
+    const side=agg==='BUY'?'ask':'bid';
+    const base=Math.round(price/this.tick);
+    for(let d=-2;d<=2;d++){
+      const r=this.m.get((side==='bid'?'b':'a')+(base+d));
+      if(r&&r.peak>=this.minQty){r.traded+=qty;if(r.traded>r.peak*0.5&&r.state!=='GONE')r.state='CONSUMED';}
+    }
+  }
+  pers(r,now,span=60000){
+    const life=clamp((Math.min(r.last,now)-r.first)/span,0,1);
+    const dens=clamp(r.snaps/Math.max(1,(Math.min(r.last,now)-r.first)/1000),0,1);
+    return clamp(life*0.6+dens*0.4,0,1);
+  }
+  top(side,n,now){
+    const o=[];for(const r of this.m.values()){
+      if(r.side!==side||r.peak<this.minQty)continue;
+      const p=this.pers(r,now);if(p<0.22)continue;
+      o.push({p:r.p,peak:r.peak,life:(r.last-r.first)/1000,replen:r.replen,state:r.state,pers:p,traded:r.traded,score:r.peak*(0.35+p)});
+    }
+    o.sort((a,b)=>b.score-a.score);return o.slice(0,n);
+  }
+  bias(now){const b=this.top('bid',5,now).reduce((s,r)=>s+r.score,0),a=this.top('ask',5,now).reduce((s,r)=>s+r.score,0);
+    return(b+a)===0?0:(b-a)/(b+a);}
+}
+class AbsorptionDetector{
+  constructor(){this.base=[];this.cand=null;this.confirmed=null;this.lastEval=0;}
+  evaluate(now,trades,walls,midFn){
+    if(now-this.lastEval<900)return this.confirmed;
+    this.lastEval=now;
+    const W=CFG.absWinMs,band=0.05,from=now-W;
+    const win=[];for(const t of trades)if(t.timestamp>=from)win.push(t);
+    if(win.length<10)return this.confirmed;
+    const mid=midFn(),lo=mid-band,hi=mid+band;
+    let bv=0,sv=0;for(const t of win)if(t.price>=lo&&t.price<=hi){t.signedQuantity>0?bv+=t.quantity:sv+=t.quantity;}
+    const tot=bv+sv;if(tot<=0)return this.confirmed;
+    const disp=win[win.length-1].price-win[0].price,eps=band*0.35;
+    this.base.push(tot);if(this.base.length>40)this.base.shift();
+    const s=[...this.base].sort((a,b)=>a-b),med=s[Math.floor(s.length/2)]||tot;
+    const hot=tot>med*1.22;
+    const bp=Math.max(0,...walls.top('bid',4,now).filter(w=>w.p>=lo-0.06&&w.p<=mid).map(w=>w.pers));
+    const ap=Math.max(0,...walls.top('ask',4,now).filter(w=>w.p<=hi+0.06&&w.p>=mid).map(w=>w.pers));
+    let dir=0;
+    if(hot&&sv>bv*1.22&&disp>-eps&&bp>0.32)dir=1;
+    else if(hot&&bv>sv*1.22&&disp<eps&&ap>0.32)dir=-1;
+    if(dir!==0){
+      if(!this.cand||this.cand.dir!==dir)this.cand={dir,hits:0,since:now,price:mid};
+      this.cand.hits++;this.cand.price=mid;this.cand.bv=bv;this.cand.sv=sv;this.cand.disp=disp;this.cand.pers=dir>0?bp:ap;
+      if(this.cand.hits>=CFG.absNeed){
+        this.confirmed={dir:this.cand.dir,at:now,price:this.cand.price,hits:this.cand.hits,expires:now+50000,d:this.cand};
+        this.cand=null;return this.confirmed;
+      }
+    }else this.cand=null;
+    if(this.confirmed&&now>this.confirmed.expires)this.confirmed=null;
+    return this.confirmed;
+  }
+}
+class CandleBuilder{
+  constructor(ms,keep,label){this.ms=ms;this.keep=keep;this.label=label;this.cur=null;this.closed=[];this.onClose=null;}
+  onPrice(t,p){
+    const k=Math.floor(t/this.ms);
+    if(!this.cur||this.cur.k!==k){
+      if(this.cur){this.cur.closed=true;this.closed.push(this.cur);if(this.closed.length>this.keep)this.closed.shift();if(this.onClose)this.onClose(this.cur);}
+      this.cur={k,t:k*this.ms,o:p,h:p,l:p,c:p};
+    }else{if(p>this.cur.h)this.cur.h=p;if(p<this.cur.l)this.cur.l=p;this.cur.c=p;}
+  }
+  progress(now){return this.cur?clamp((now-this.cur.t)/this.ms,0,1):0;}
+  last(){return this.closed.length?this.closed[this.closed.length-1]:null;}
+}
+class LatencyMeter{constructor(n=400){this.n=n;this.a=[];}
+  push(v){this.a.push(v);if(this.a.length>this.n)this.a.shift();}
+  pct(p){if(!this.a.length)return null;const s=[...this.a].sort((a,b)=>a-b);return s[clamp(Math.floor(s.length*p),0,s.length-1)];}}
+
+/* instances */
+const buckets=new TradeBuckets(1000,8200);
+const rawTrades=new RollingWindow(120000);
+const tob=new TopOfBookRing(25*60000);
+const heat=new DepthHeatStore();
+const walls=new WallTracker(0.01,110);
+const absorb=new AbsorptionDetector();
+const lat=new LatencyMeter();
+const C={m1:new CandleBuilder(60000,180,'1m'),m3:new CandleBuilder(180000,120,'3m'),
+         m5:new CandleBuilder(300000,120,'5m'),m15:new CandleBuilder(900000,96,'15m'),
+         h1:new CandleBuilder(3600000,72,'1h'),h4:new CandleBuilder(14400000,40,'4h')};
+const ALLC=[C.m1,C.m3,C.m5,C.m15,C.h1,C.h4];
+
+let BOOK={bids:[],asks:[],mid:101.5,bb:101.49,ba:101.50,seq:0,ts:0,gaps:0,lastU:0,lastu:0};
+let SIM={now:Date.now(),evCount:0,evWindowT:0,evRate:0};
+
+/* ══ 2. SYNTHETIC FEED ADAPTER — isolated behind Adapter.* ══════════ */
+const REGIMES=[
+  {n:'ACCUMULATION',drift:0.000004,vol:0.9,tps:6,bias:0.06},
+  {n:'MARKUP',drift:0.000034,vol:1.3,tps:11,bias:0.22},
+  {n:'DISTRIBUTION',drift:-0.000003,vol:1.0,tps:7,bias:-0.07},
+  {n:'MARKDOWN',drift:-0.000032,vol:1.4,tps:12,bias:-0.24}
+];
+const Feed={
+  fair:101.5,noise:0,regime:0,until:0,walls:[],lv:new Map(),
+  nT:0,nB:0,nS:0,nK:0,faultUntil:0,rate:0,rT:0,coarse:false,
+
+  init(t){SIM.now=t;this.fair=101.5;this.until=SIM.now+180000;this.nT=this.nB=this.nS=this.nK=SIM.now;this.rT=SIM.now;},
+  R(){return REGIMES[this.regime];},
+  regimeStep(t){
+    if(t>=this.until){
+      const seq={0:[1,2],1:[2,0],2:[3,0],3:[0,2]},o=seq[this.regime];
+      this.regime=o[Math.floor(Math.random()*o.length)];
+      this.until=t+(150000+Math.random()*330000);
+      Log.push('regime',`synthetic regime → <b>${this.R().n}</b> · drift ${(this.R().drift*1e5).toFixed(2)}e-5 · ${this.R().tps} tr/s`);
+    }
+  },
+  target(p,side,mid){
+    const d=Math.abs(p-mid);
+    let b=24+200*Math.exp(-d/0.30)+38*Math.exp(-d/1.15);
+    for(const w of this.walls)if(w.side===side&&Math.abs(w.p-p)<0.005)b+=w.q;
+    return b;
+  },
+  evolve(mid){
+    for(let i=1;i<=62;i++){
+      const bp=r2(mid-i*0.01),ap=r2(mid+i*0.01);
+      for(const[p,s]of[[bp,'bid'],[ap,'ask']]){
+        const k=s+p.toFixed(2);let st=this.lv.get(k);
+        const tg=this.target(p,s,mid);
+        if(!st){st={q:tg*(0.7+Math.random()*0.6)};this.lv.set(k,st);}
+        st.q+=(tg-st.q)*0.13+(Math.random()-0.5)*tg*0.10;
+        if(st.q<4)st.q=4;
+      }
+    }
+    if(this.lv.size>1100){let i=0;for(const k of this.lv.keys())if(i++>850)this.lv.delete(k);}
+  },
+  wallStep(t,mid){
+    if(this.walls.length<6&&Math.random()<0.022){
+      const side=Math.random()<0.5-this.R().bias?'bid':'ask';
+      const off=(2+Math.floor(Math.random()*26))*0.01;
+      this.walls.push({side,p:r2(side==='bid'?mid-off:mid+off),q:250+Math.random()*640,born:t,ttl:25000+Math.random()*150000,consumed:0});
+    }
+    for(let i=this.walls.length-1;i>=0;i--){
+      const w=this.walls[i];
+      if(t-w.born>w.ttl){Log.push('wall',`wall expired @ <b>${w.p.toFixed(2)}</b> ${w.side} — ${w.consumed>w.q*0.35?'partly CONSUMED by aggressive flow':'CANCELLED before execution'}`);this.walls.splice(i,1);}
+    }
+  },
+  build(t){
+    const mid=r2(this.fair+this.noise);this.evolve(mid);
+    const bids=[],asks=[];
+    for(let i=1;i<=60;i++){
+      const bp=r2(mid-i*0.01),ap=r2(mid+i*0.01);
+      bids.push({p:bp,q:+((this.lv.get('bid'+bp.toFixed(2))||{q:20}).q).toFixed(3)});
+      asks.push({p:ap,q:+((this.lv.get('ask'+ap.toFixed(2))||{q:20}).q).toFixed(3)});
+    }
+    const prevU=BOOK.lastU,prevu=BOOK.lastu;
+    BOOK={bids,asks,mid,bb:bids[0].p,ba:asks[0].p,seq:BOOK.seq+1,ts:t,gaps:BOOK.gaps,
+      lastU:t,lastu:t+(prevU&&prevu?t-prevu>600?1:0:0)};
+    if(prevu&&t-prevu>600)BOOK.gaps++;
+    return BOOK;
+  },
+  trade(t){
+    const R=this.R();
+    const buy=Math.random()<0.5+R.bias;
+    const q=+(0.4+Math.pow(Math.random(),2.4)*42).toFixed(3);
+    this.fair+=(buy?1:-1)*0.0016*Math.sqrt(q)*R.vol+R.drift*1000*(0.5+Math.random());
+    this.noise=this.noise*0.90+(Math.random()-0.5)*0.012*R.vol;
+    const p=r2(clamp(this.fair+this.noise+(buy?0.005:-0.005),1,1e6));
+    const side=buy?'ask':'bid';
+    for(const w of this.walls)if(w.side===side&&Math.abs(w.p-p)<0.012)w.consumed+=q;
+    const arr=buy?BOOK.asks:BOOK.bids;let rem=q;
+    for(let i=0;i<arr.length&&rem>0;i++){
+      const l=arr[i],tk=Math.min(l.q,rem);
+      const st=this.lv.get(side+l.p.toFixed(2));if(st)st.q=Math.max(1,st.q-tk);
+      l.q=+(l.q-tk).toFixed(3);rem-=tk;
+    }
+    Adapter.onTrade({timestamp:t,price:p,quantity:q,signedQuantity:buy?q:-q,aggressorSide:buy?'BUY':'SELL'},t);
+  },
+  /* coarse pre-roll: candle-level history only (structure seeding) */
+  preRoll(hours){
+    const end=SIM.now+hours*3600000;let t=SIM.now;
+    while(t<end){
+      this.regimeStep(t);
+      const R=this.R();
+      this.fair+=R.drift*60000*16+(Math.random()-0.5+R.bias*0.5)*0.05*R.vol;
+      this.noise=this.noise*0.6+(Math.random()-0.5)*0.03;
+      const p=r2(this.fair+this.noise);
+      for(const cb of ALLC)cb.onPrice(t,p);
+      t+=60000;
+    }
+    SIM.now=t;this.nT=this.nB=this.nS=this.nK=t;
+    return{candles:Math.round((t-SIM.now)/60000),endPrice:this.fair};
+  },
+  step(realDelta){
+    const target=SIM.now+realDelta*CFG.speed;
+    if(this.faultUntil>SIM.now){this.nT=this.nB=this.nS=this.nK=target;SIM.now=target;return;}
+    this.regimeStep(SIM.now);
+    const bStep=this.coarse?500:250, sStep=this.coarse?2000:1000;
+    let g=0;
+    while(this.nB<=target&&g++<6000){const b=this.build(this.nB);Adapter.onBookTicker(b,this.nB);this.nB+=bStep;}
+    g=0;
+    while(this.nT<=target&&g++<30000){this.trade(this.nT);this.nT+=(1000/this.R().tps)*(0.35+Math.random()*1.3);}
+    g=0;
+    while(this.nS<=target&&g++<6000){this.wallStep(this.nS,BOOK.mid);const b=this.build(this.nS);Adapter.onDepth(b,this.nS);this.nS+=sStep;}
+    g=0;
+    while(this.nK<=target&&g++<6000){for(const cb of ALLC)cb.onPrice(this.nK,BOOK.mid);Adapter.onKline(this.nK,BOOK.mid);this.nK+=250;}
+    SIM.now=target;
+    if(SIM.now-this.rT>=1000){this.rate=buckets.count(SIM.now-1000,SIM.now);this.rT=SIM.now;}
+  },
+  fault(ms){this.faultUntil=SIM.now+ms;}
+};
+
+/* ══ 3. NORMALIZATION BOUNDARY ═══════════════════════════════════════ */
+const Adapter={
+  onTrade(e){
+    const t0=performance.now();
+    buckets.add(e.timestamp,e.price,e.quantity,e.signedQuantity);
+    rawTrades.add(e);
+    walls.onTrade(e.price,e.quantity,e.aggressorSide);
+    lat.push(performance.now()-t0);SIM.evCount++;
+  },
+  onBookTicker(b,t){
+    const t0=performance.now();
+    const i0=bookImb(1).v,i10=bookImb(IMB_LV).v;
+    tob.add(t,b.bb,b.bids[0].q,b.ba,b.asks[0].q,i0,i10);
+    lat.push(performance.now()-t0);SIM.evCount++;
+  },
+  onDepth(b,t){
+    const t0=performance.now();
+    heat.add(t,b,b.mid);walls.observe(b,t);
+    lat.push(performance.now()-t0);SIM.evCount++;
+  },
+  onKline(t,p){/* candles already fed by builder; hook for real kline stream */}
+};
+function bookImb(lv){
+  let b=0,a=0;
+  for(let i=0;i<Math.min(lv,BOOK.bids.length);i++)b+=BOOK.bids[i].q;
+  for(let i=0;i<Math.min(lv,BOOK.asks.length);i++)a+=BOOK.asks[i].q;
+  return{v:(b+a)===0?0:(b-a)/(b+a),b,a};
+}
+function depthWalk(side,size){
+  const arr=side==='buy'?BOOK.asks:BOOK.bids;
+  let rem=size,cost=0,lv=0;
+  for(const l of arr){if(rem<=0)break;const tk=Math.min(l.q,rem);cost+=tk*l.p;rem-=tk;lv++;}
+  const f=size-rem;return{vwap:f>0?cost/f:null,levels:lv,unfilled:rem};
+}
+
+/* ══ 4. WINDOW METRICS ═══════════════════════════════════════════════ */
+function sumRaw(f,t){
+  const ev=rawTrades.snapshot(t);let buy=0,sell=0,hi=-Infinity,lo=Infinity,rv=0,prev=null,o=null,c=null,n=0;
+  for(const e of ev){
+    if(e.timestamp<f)continue;
+    e.signedQuantity>0?buy+=e.quantity:sell+=e.quantity;n++;
+    if(e.price>hi)hi=e.price;if(e.price<lo)lo=e.price;
+    if(o===null)o=e.price;
+    if(prev!==null){const lr=Math.log(e.price/prev);rv+=lr*lr;}
+    prev=e.price;c=e.price;
+  }
+  return{n,buy,sell,cvd:buy-sell,open:o,close:c,high:hi===-Infinity?null:hi,low:lo===Infinity?null:lo,
+    disp:o!=null?c-o:null,dispPct:o!=null?(c/o-1)*100:null,rv:Math.sqrt(rv)*10000,
+    fill:clamp(n?(t-f)/(t-f):0,0,1),src:'raw ring'};
+}
+function sumBuck(f,t){
+  const bs=buckets.range(f,t);let buy=0,sell=0,n=0,hi=-Infinity,lo=Infinity,rv=0,prev=null,o=null,c=null;
+  for(const b of bs){buy+=b.buy;sell+=b.sell;n+=b.n;if(b.h>hi)hi=b.h;if(b.l<lo)lo=b.l;
+    if(o===null)o=b.o;c=b.c;if(prev!==null){const lr=Math.log(b.c/prev);rv+=lr*lr;}prev=b.c;}
+  const cov=bs.length?(bs[bs.length-1].t+1000-bs[0].t):0;
+  return{n,buy,sell,cvd:buy-sell,open:o,close:c,high:hi===-Infinity?null:hi,low:lo===Infinity?null:lo,
+    disp:o!=null?c-o:null,dispPct:o!=null?(c/o-1)*100:null,rv:Math.sqrt(rv)*10000,
+    fill:clamp(cov/(t-f),0,1),src:'1 s buckets'};
+}
+function win(ms,now){
+  const raw=ms<=120000?sumRaw(now-ms,now):sumBuck(now-ms,now);
+  const vol=Math.max(1,raw.buy+raw.sell);
+  raw.ofiRaw=tob.ofi(now-ms,now);
+  raw.ofi=clamp(raw.ofiRaw/(vol*0.55),-1,1);
+  raw.buyPct=vol>0?raw.buy/vol*100:50;
+  raw.mid=BOOK.mid;
+  raw.dispBps=raw.mid?raw.disp/raw.mid*10000:null;
+  raw.eff=raw.rv>0?Math.abs(raw.dispBps)/raw.rv:null;
+  return raw;
+}
+
+/* ══ 5. STRUCTURE ENGINE ═════════════════════════════════════════════ */
+function swings(cl,lb=2){
+  const H=[],L=[];
+  for(let i=lb;i<cl.length-lb;i++){
+    const c=cl[i];let ih=true,il=true;
+    for(let j=1;j<=lb;j++){
+      if(c.h<=cl[i-j].h||c.h<=cl[i+j].h)ih=false;
+      if(c.l>=cl[i-j].l||c.l>=cl[i+j].l)il=false;
+    }
+    if(ih)H.push({p:c.h,t:c.t,i});if(il)L.push({p:c.l,t:c.t,i});
+  }
+  return{H,L};
+}
+function analyze(cb,now){
+  const cl=cb.closed,o={tf:cb.label,n:cl.length,last:cb.last(),cur:cb.cur,progress:cb.progress(now),
+    trend:'—',bos:null,choch:null,sweeps:[],zones:[],bias:0,ok:false};
+  if(cl.length<8)return o;
+  o.ok=true;
+  const{H,L}=swings(cl,2);
+  const c=cl[cl.length-1],prev=cl[cl.length-2];
+  const closes=cl.slice(-10).map(x=>x.c),sma=closes.reduce((a,b)=>a+b,0)/closes.length;
+  o.sma=sma;o.lastC=c;
+
+  // BOS / CHoCH on the most recent closed candle
+  const lH=H.length?H[H.length-1]:null,lL=L.length?L[L.length-1]:null;
+  if(lH&&c.c>lH.p&&prev.c<=lH.p)o.bos={dir:1,at:lH.p,t:c.t};
+  if(lL&&c.c<lL.p&&prev.c>=lL.p)o.bos=o.bos||{dir:-1,at:lL.p,t:c.t};
+
+  // sweep: wick through a prior extreme, close back inside
+  for(let i=Math.max(2,cl.length-6);i<cl.length;i++){
+    const x=cl[i];
+    const pH=H.filter(s=>s.i<i).slice(-1)[0],pL=L.filter(s=>s.i<i).slice(-1)[0];
+    if(pH&&x.h>pH.p&&x.c<pH.p)o.sweeps.push({type:'BSL swept',p:pH.p,t:x.t,bull:true});
+    if(pL&&x.l<pL.p&&x.c>pL.p)o.sweeps.push({type:'SSL swept',p:pL.p,t:x.t,bull:false});
+  }
+  o.sweeps=o.sweeps.slice(-3);
+
+  // trend from swing sequence
+  const hh=H.length>=2&&H[H.length-1].p>H[H.length-2].p;
+  const hl=L.length>=2&&L[L.length-1].p>L[L.length-2].p;
+  const lh=H.length>=2&&H[H.length-1].p<H[H.length-2].p;
+  const ll=L.length>=2&&L[L.length-1].p<L[L.length-2].p;
+  o.pattern=(hh&&hl)?'HH + HL':(lh&&ll)?'LH + LL':(hh||hl)?'mixed · higher extreme':(lh||ll)?'mixed · lower extreme':'range';
+  const above=c.c>sma;
+  o.bias=(hh&&hl&&above)?1:(lh&&ll&&!above)?-1:(above&&(hh||hl))?1:(!above&&(lh||ll))?-1:0;
+  o.trend=o.bias>0?'BULLISH':o.bias<0?'BEARISH':'NEUTRAL / RANGE';
+
+  // unswept liquidity
+  const mid=BOOK.mid,zs=[];
+  for(const s of H.slice(-4))if(s.p>mid)zs.push({p:s.p,type:'BSL',t:s.t,d:(s.p-mid)/mid*100});
+  for(const s of L.slice(-4))if(s.p<mid)zs.push({p:s.p,type:'SSL',t:s.t,d:(s.p-mid)/mid*100});
+  zs.sort((a,b)=>Math.abs(a.d)-Math.abs(b.d));o.zones=zs.slice(0,4);
+  return o;
+}
+
+/* ══ 6. SIGNAL STATE MACHINE ═════════════════════════════════════════ */
+const Signal={
+  state:'NO_TRADE',lastChange:SIM.now,pendDir:0,pendHits:0,pendSince:0,
+  pts:0,ledger:[],gates:[],reasons:[],entry:null,inv:null,stop:null,trigAt:0,
+
+  eval(now){
+    const w5=win(5000,now),w30=win(30000,now),w2m=win(120000,now),w5m=win(300000,now);
+    const st={m1:analyze(C.m1,now),m3:analyze(C.m3,now),m5:analyze(C.m5,now),
+              m15:analyze(C.m15,now),h1:analyze(C.h1,now),h4:analyze(C.h4,now)};
+    const imb=bookImb(IMB_LV);
+    const abs=absorb.confirmed&&now<=absorb.confirmed.expires?absorb.confirmed:null;
+    const stale=(now-BOOK.ts)>CFG.staleMs;
+    const wb=walls.bias(now);
+
+    /* ── confluence ledger (points, capped at CFG.maxPts) ── */
+    const L=[];
+    const add=(n,pts,max,note)=>L.push({n,pts:clamp(pts,-max,max),max,note});
+
+    // A. multi-resolution flow agreement (noise filter aware)
+    const sO=[w5.ofi,w30.ofi,w2m.ofi];
+    const agree=sO.filter(v=>v>0.12).length-sO.filter(v=>v<-0.12).length;
+    add('micro flow agreement (5s/30s/2m OFI)',agree*0.8,2.4,
+      `${sgn(w5.ofi)}${Math.abs(w5.ofi).toFixed(2)} / ${sgn(w30.ofi)}${Math.abs(w30.ofi).toFixed(2)} / ${sgn(w2m.ofi)}${Math.abs(w2m.ofi).toFixed(2)}`);
+    // B. CVD 2m + 5m
+    const cvdN=clamp(w2m.cvd/Math.max(60,(w2m.buy+w2m.sell)*0.3),-1,1)*0.6+
+               clamp(w5m.cvd/Math.max(120,(w5m.buy+w5m.sell)*0.3),-1,1)*0.6;
+    add('CVD 2m + 5m signed flow',cvdN*1.1,2,`${sgn(w2m.cvd)}${fmtN(Math.abs(w2m.cvd))} / ${sgn(w5m.cvd)}${fmtN(Math.abs(w5m.cvd))} SOL`);
+    // C. absorption
+    add('absorption confirmed (event window)',abs?abs.dir*Math.min(2,abs.hits*0.5):0,2,
+      abs?`${abs.dir>0?'sell absorbed':'buy absorbed'} @ ${abs.price.toFixed(2)}`:'none active');
+    // D. wall persistence bias
+    add('persistent wall bias',clamp(wb*1.8,-1,1)*1,1,`bias ${sgn(wb)}${Math.abs(wb).toFixed(2)}`);
+    // E. 1m trigger candle
+    const m1c=st.m1.last;const m1d=m1c?(m1c.c>=m1c.o?1:-1):0;
+    add('1m closed trigger candle',m1d*1,1,m1c?`${m1d>0?'GREEN':'RED'} ${m1c.o.toFixed(2)}→${m1c.c.toFixed(2)}`:'—');
+    // F. 3m/5m setup structure
+    const s5=st.m5.bias,s3=st.m3.bias;
+    add('3m/5m setup structure (BOS/swing)',(s5*0.7+s3*0.3)*2,2,`5m ${st.m5.pattern||'—'} · 3m ${st.m3.pattern||'—'}`);
+    // G. 15m confirmation
+    add('15m confirmation',st.m15.bias*1,1,st.m15.ok?st.m15.trend:'insufficient candles');
+    // H. 1h context
+    add('1h closed-candle context',st.h1.bias*2,2,st.h1.ok?`${st.h1.trend} · ${st.h1.pattern}`:'insufficient candles');
+    // I. optional 4h filter
+    if(CFG.use4h)add('4h swing filter (blocking)',st.h4.bias*1,1,st.h4.ok?st.h4.trend:'insufficient candles');
+    else add('4h swing filter (optional · ignored)',0,1,st.h4.ok?`${st.h4.trend} — not blocking`:'insufficient candles');
+    // J. execution friction
+    const frOK=Exec.totalBps==null||Exec.totalBps<10;
+    add('execution friction acceptable',frOK?1:-0.5,1,Exec.totalBps==null?'—':Exec.totalBps.toFixed(1)+' bps rt');
+
+    let pts=0;for(const l of L)pts+=l.pts;
+    pts=Math.round(clamp(pts,-CFG.maxPts,CFG.maxPts)*10)/10;
+    this.ledger=L;this.pts=pts;
+
+    /* ── gates ── */
+    const dir=pts>=CFG.entryPts?1:pts<=-CFG.entryPts?-1:0;
+    const heldL=this.state==='LONG'&&pts>CFG.exitPts;
+    const heldS=this.state==='SHORT'&&pts<-CFG.exitPts;
+    const htfOK=d=>st.h1.bias===0||st.h1.bias===d||CFG.countertrend;
+    const f4OK=d=>!CFG.use4h||st.h4.bias===0||st.h4.bias===d;
+    const setupOK=d=>st.m5.ok?(st.m5.bias===d||st.m5.bias===0):false;
+    const m1OK=d=>m1d===d;
+    const gates=[
+      {n:'confluence ≥ entry threshold',ok:dir!==0||heldL||heldS,note:`${sgn(pts)}${Math.abs(pts).toFixed(1)} / ${CFG.entryPts}`},
+      {n:`persistence ${CFG.persistSec} s @ 1 s eval`,ok:this.pendHits>=CFG.persistSec||heldL||heldS,note:`${this.pendHits}/${CFG.persistSec}`},
+      {n:'1m closed trigger candle',ok:dir===0?true:m1OK(dir),note:m1c?(m1d>0?'GREEN':'RED'):'—'},
+      {n:'3m/5m setup structure aligned',ok:dir===0?true:setupOK(dir),note:st.m5.ok?st.m5.trend:'n/a'},
+      {n:'1h closed context aligned',ok:dir===0?true:htfOK(dir),note:st.h1.ok?st.h1.trend:'n/a'},
+      {n:'4h filter'+(CFG.use4h?' (blocking)':' (off)'),ok:dir===0?true:f4OK(dir),note:st.h4.ok?st.h4.trend:'n/a'},
+      {n:'book valid · data fresh',ok:!stale,note:stale?'STALE '+((now-BOOK.ts)|0)+'ms':((now-BOOK.ts)|0)+' ms'},
+      {n:'seq integrity (no unresolved gap)',ok:BOOK.gaps===0||!stale,note:BOOK.gaps+' gaps'}
+    ];
+    this.gates=gates;
+
+    /* ── evidence ── */
+    const R=[];
+    if(stale)R.push({c:'r',t:`<b>DATA STALE</b> — depth age ${(now-BOOK.ts)|0} ms > ${CFG.staleMs} ms · new entries frozen, existing position still risk-managed`,s:'interlock'});
+    R.push({c:abs?(abs.dir>0?'g':'r'):'d',t:abs?`absorption <b>CONFIRMED</b> ${abs.dir>0?'(sell flow absorbed, price held)':'(buy flow absorbed, price capped)'} @ ${abs.price.toFixed(2)} · ${abs.hits} windows`:'no confirmed absorption in the last '+CFG.absWinMs/1000+' s event window',s:'L2'});
+    R.push({c:cls(w5.ofi),t:`noise filter: 5s OFI <b>${sgn(w5.ofi)}${Math.abs(w5.ofi).toFixed(2)}</b> vs 30s <b>${sgn(w30.ofi)}${Math.abs(w30.ofi).toFixed(2)}</b> vs 2m <b>${sgn(w2m.ofi)}${Math.abs(w2m.ofi).toFixed(2)}</b> → ${verdictText(w5,w30,w2m,w5m).short}`,s:'L2'});
+    R.push({c:cls(imb.v),t:`10-level depth imbalance <b>${sgn(imb.v)}${Math.abs(imb.v).toFixed(3)}</b> (${fmtN(imb.b)} bid vs ${fmtN(imb.a)} ask SOL) · 5s mean ${sgn(tob.imbMean(now-5000,now))}${Math.abs(tob.imbMean(now-5000,now)).toFixed(3)}`,s:'L1'});
+    if(st.m5.ok)R.push({c:st.m5.bias>0?'g':st.m5.bias<0?'r':'d',t:`5m structure <b>${st.m5.trend}</b> · ${st.m5.pattern}${st.m5.bos?` · BOS ${st.m5.bos.dir>0?'↑':'↓'} through ${st.m5.bos.at.toFixed(2)}`:''}`,s:'L3'});
+    if(st.m5.sweeps.length)R.push({c:'p',t:`liquidity sweep candidate on 5m: <b>${st.m5.sweeps[st.m5.sweeps.length-1].type}</b> @ ${st.m5.sweeps[st.m5.sweeps.length-1].p.toFixed(2)}`,s:'L3'});
+    if(st.h1.ok)R.push({c:st.h1.bias>0?'g':st.h1.bias<0?'r':'d',t:`1h closed-candle context <b>${st.h1.trend}</b> · ${st.h1.pattern} · forming ${(st.h1.progress*100).toFixed(0)}%`,s:'L4'});
+    if(dir!==0&&!htfOK(dir))R.push({c:'a',t:`<b>CONFLICT</b> — micro/setup ${dir>0?'bullish':'bearish'} vs 1h ${st.h1.trend}. countertrend ${CFG.countertrend?'ENABLED':'DISABLED'} → ${CFG.countertrend?'allowed with penalty':'prefer NO_TRADE'}`,s:'policy'});
+    if(dir!==0&&CFG.use4h&&!f4OK(dir))R.push({c:'a',t:`<b>CONFLICT</b> — 4h blocking filter opposes the setup (${st.h4.trend})`,s:'policy'});
+    this.reasons=R;
+
+    /* ── transition ── */
+    let next=this.state;
+    if(stale)next='NO_TRADE';
+    else if(this.state==='NO_TRADE'){
+      if(dir!==0&&dir===this.pendDir)this.pendHits++;
+      else{this.pendDir=dir;this.pendHits=dir!==0?1:0;this.pendSince=now;}
+      if(dir!==0&&this.pendHits>=CFG.persistSec&&gates.slice(2).every(g=>g.ok)&&!stale)next=dir>0?'LONG':'SHORT';
+    }else if(this.state==='LONG'){
+      if(pts<=CFG.exitPts||!htfOK(1)||(CFG.use4h&&!f4OK(1)))next='NO_TRADE';
+    }else{
+      if(pts>=-CFG.exitPts||!htfOK(-1)||(CFG.use4h&&!f4OK(-1)))next='NO_TRADE';
+    }
+
+    if(next!==this.state){
+      const prev=this.state;this.state=next;this.lastChange=now;this.pendHits=0;this.pendDir=0;
+      if(next==='LONG'||next==='SHORT'){
+        const d=next==='LONG'?1:-1;
+        this.entry=BOOK.mid;this.trigAt=now;
+        const wl=walls.top(d>0?'bid':'ask',4,now).filter(w=>d>0?w.p<BOOK.mid:w.p>BOOK.mid);
+        const sw=d>0?Math.min(...C.m5.closed.slice(-6).map(c=>c.l)):Math.max(...C.m5.closed.slice(-6).map(c=>c.h));
+        this.inv=wl.length?wl[0].p:sw;
+        this.stop=d>0?r2(this.inv-0.05):r2(this.inv+0.05);
+        Risk.open(next,this.entry,this.stop,now);
+        Log.push('signal',`STATE <b>${prev}</b> → <b>${next}</b> · ${sgn(pts)}${Math.abs(pts).toFixed(1)} pts held ${CFG.persistSec}×1 s · 1m trigger ${m1d>0?'green':'red'} · 5m ${st.m5.trend} · 1h ${st.h1.trend} · entry ${this.entry.toFixed(2)} · invalidation ${this.inv.toFixed(2)}`);
+      }else{
+        if(prev!=='NO_TRADE'){Risk.close(now,pts>0?'confluence decayed below exit threshold':'gate/conflict exit');
+          Log.push('signal',`STATE <b>${prev}</b> → <b>NO_TRADE</b> · ${sgn(pts)}${Math.abs(pts).toFixed(1)} pts vs exit ${CFG.exitPts}`);}
+        this.entry=this.inv=this.stop=null;
+      }
+    }
+    this.st={w5,w30,w2m,w5m,m1:st.m1,m3:st.m3,m5:st.m5,m15:st.m15,h1:st.h1,h4:st.h4,abs,stale};
+  },
+  age(now){return(now-this.lastChange)/1000;}
+};
+
+function verdictText(w5,w30,w2m,w5m){
+  const s=v=>v>0.12?1:v<-0.12?-1:0;
+  const a=s(w5.ofi),b=s(w30.ofi),c=s(w2m.ofi),d=s(w5m.ofi);
+  const mag=Math.abs(w5m.dispBps||0),rv=w5m.rv||0.001;
+  const eff=rv>0?mag/rv:0;
+  if(a!==0&&a===b&&b===c&&c===d&&Math.abs(w2m.ofi)>0.25)
+    return{short:'SUSTAINED DIRECTIONAL FLOW',long:`All four resolutions agree ${a>0?'bid-side':'ask-side'} (5s→5m). Flow is not a burst. Displacement efficiency ${eff.toFixed(2)} — ${eff>0.55?'price is travelling with the flow':'high volume, limited travel: expect resistance'}.`,tag:a>0?'g':'r'};
+  if(a!==0&&a!==b&&a!==c&&b===c&&b!==0)
+    return{short:`${a>0?'BUY':'SELL'} BURST vs LARGER ${b>0?'BUY':'SELL'} BACKDROP`,long:`5s OFI ${sgn(w5.ofi)}${Math.abs(w5.ofi).toFixed(2)} opposes 30s ${sgn(w30.ofi)}${Math.abs(w30.ofi).toFixed(2)} and 2m ${sgn(w2m.ofi)}${Math.abs(w2m.ofi).toFixed(2)}. Read this as a short burst of ${a>0?'buying':'selling'} against a larger ${b>0?'buying':'selling'} backdrop — <b>not</b> "${a>0?'buyers':'sellers'} in control".`,tag:'a'};
+  if(a!==0&&a===b&&c!==0&&c!==a)
+    return{short:'EMERGING SHIFT · UNCONFIRMED',long:`5s and 30s turned ${a>0?'bid':'ask'} while 2m is still ${c>0?'bid':'ask'}. Possible rotation; require the 2m window to follow before treating it as a setup.`,tag:'a'};
+  if(a===0&&b===0&&c===0)
+    return{short:'BALANCED / CHURN',long:`No resolution shows directional order flow (|OFI| ≤ 0.12 at 5s/30s/2m). 5m efficiency ${eff.toFixed(2)} with RV ${rv.toFixed(0)} bps — two-sided churn, no microstructure edge.`,tag:'d'};
+  if(Math.abs(w5m.cvd)>0&&eff<0.2&&Math.abs(w2m.ofi)>0.2)
+    return{short:'ABSORPTION-LIKE · FLOW ≠ TRAVEL',long:`Sustained ${w2m.ofi>0?'buy':'sell'} flow (${sgn(w2m.ofi)}${Math.abs(w2m.ofi).toFixed(2)}) produced only ${mag.toFixed(0)} bps of 5m displacement against ${rv.toFixed(0)} bps of realized vol. Someone is absorbing; check the persistence table and absorption detector before acting.`,tag:'p'};
+  return{short:'MIXED · NO CLEAN READ',long:`Resolutions disagree (5s ${sgn(w5.ofi)}${Math.abs(w5.ofi).toFixed(2)}, 30s ${sgn(w30.ofi)}${Math.abs(w30.ofi).toFixed(2)}, 2m ${sgn(w2m.ofi)}${Math.abs(w2m.ofi).toFixed(2)}, 5m ${sgn(w5m.ofi)}${Math.abs(w5m.ofi).toFixed(2)}). Treat as noise until one window dominates.`,tag:'d'};
+}
+
+/* ══ 7. EXECUTION + RISK ═════════════════════════════════════════════ */
+const Exec={totalBps:null,a:{},e:{},lastBookSeq:0,
+  compute(now){
+    const size=Math.max(0.01,parseFloat($('inSize').value)||10);
+    const fee=Math.max(0,parseFloat($('inFee').value)||0);
+    const side=$('inSide').value;
+    const mid=BOOK.mid,sprd=BOOK.ba-BOOK.bb,sprdBps=mid?sprd/mid*10000:null;
+    const wk=depthWalk(side,size);
+    const slip=wk.vwap!=null?Math.abs(wk.vwap-mid)/mid*10000:null;
+    const half=sprdBps!=null?sprdBps/2:null;
+    const total=(slip||0)+(half||0)+fee*2;
+    const w5m=win(300000,now);
+    const rng=(w5m.high!=null&&w5m.low!=null)?(w5m.high-w5m.low)/mid*10000:null;
+    this.a={bb:BOOK.bb,ba:BOOK.ba,sprdBps,age:now-BOOK.ts,gaps:BOOK.gaps};
+    this.e={size,side,vwap:wk.vwap,levels:wk.levels,unfilled:wk.unfilled,slip,half,fee,total,rngBps:rng};
+    this.totalBps=total;
+  }};
+const Risk={pos:null,entry:null,stop:null,dir:0,mae:0,breach:false,frozen:false,why:'—',
+  open(s,e,st,now){this.pos=s;this.entry=e;this.stop=st;this.dir=s==='LONG'?1:-1;this.mae=0;this.breach=false;},
+  close(now,why){if(!this.pos)return;
+    const pnl=(BOOK.mid-this.entry)/this.entry*10000*this.dir;
+    Log.push('risk',`paper <b>${this.pos}</b> closed · ${why} · <b>${sgn(pnl)}${Math.abs(pnl).toFixed(1)} bps</b> · MAE ${this.mae.toFixed(1)} bps · held ${((now-this.openedAt)/1000).toFixed(0)} s`);
+    this.pos=null;this.entry=this.stop=null;this.dir=0;this.breach=false;},
+  check(now){
+    this.frozen=(now-BOOK.ts)>CFG.staleMs;
+    this.why=this.frozen?`depth age ${(now-BOOK.ts)|0} ms > ${CFG.staleMs} ms`:BOOK.gaps>0?`${BOOK.gaps} seq gap(s) — book resync required`:'feed nominal';
+    if(!this.pos)return;
+    if(!this.openedAt)this.openedAt=now;
+    const adv=this.dir>0?(this.entry-BOOK.mid)/this.entry*10000:(BOOK.mid-this.entry)/this.entry*10000;
+    if(adv>this.mae)this.mae=adv;
+    const hit=this.dir>0?BOOK.mid<=this.stop:BOOK.mid>=this.stop;
+    if(hit&&!this.breach){
+      this.breach=true;
+      Log.push('breach',`⚠ INVALIDATION BREACHED · mid <b>${BOOK.mid.toFixed(2)}</b> crossed stop <b>${this.stop.toFixed(2)}</b> — immediate exit, hysteresis and candle confirmation bypassed`);
+      Signal.state='NO_TRADE';Signal.lastChange=now;Signal.entry=Signal.inv=Signal.stop=null;
+      this.close(now,'stop breach (immediate path)');
+    }
+  }};
+
+/* ══ 8. LOG ══════════════════════════════════════════════════════════ */
+const ICON={signal:'▸',risk:'◈',breach:'⚠',absorb:'◉',wall:'▚',regime:'≋',sys:'·',fault:'⛔',struct:'◆'};
+const COL={signal:'g',risk:'a',breach:'r',absorb:'p',wall:'p',regime:'c',sys:'d',fault:'r',struct:'c'};
+const Log={a:[],seenAbs:0,
+  push(k,h){this.a.unshift({t:SIM.now,k,h,tag:'L2'});if(this.a.length>110)this.a.pop();},
+  render(){$('logN').textContent=this.a.length+' events';
+    $('log').innerHTML=this.a.slice(0,50).map(e=>
+      `<div class="le"><span class="lt">${hhmmss(e.t)}</span><span class="li ${COL[e.k]||'d'}">${ICON[e.k]||'·'}</span><span class="lx">${e.h}</span><span class="lw">${e.tag}</span></div>`).join('');}};
+
+/* ══ 9. RENDERERS ════════════════════════════════════════════════════ */
+const SM=new Map();
+function sq(s,p,q){const k=s+p.toFixed(2);const v=SM.get(k);const n=CFG.smoothing?ema(v==null?q:v,q,0.35):q;SM.set(k,n);
+  if(SM.size>1400){let i=0;for(const kk of SM.keys())if(i++>1000)SM.delete(kk);}return n;}
+
+let frames=0,fpsT=performance.now(),fps=0;
+function renderTop(){
+  const stale=(SIM.now-BOOK.ts)>CFG.staleMs;
+  $('clk').textContent=hhmmss(SIM.now)+' · '+new Date(SIM.now).toISOString().slice(0,16).replace('T',' ');
+  $('spd').textContent=CFG.speed+'×'+(CFG.paused?' ⏸':'');
+  $('seq').textContent=BOOK.seq.toLocaleString()+(BOOK.gaps?` (${BOOK.gaps} gap)`:'');
+  const l5=lat.pct(0.5),l9=lat.pct(0.95);
+  $('latm').textContent=l5==null?'—':`${l5.toFixed(2)} / ${l9.toFixed(2)} ms`;
+  const b=$('bkst');
+  b.textContent=stale?`✕ STALE ${(SIM.now-BOOK.ts)|0}ms`:BOOK.gaps?`⚠ VALID · ${BOOK.gaps} gap`:`● VALID ${(SIM.now-BOOK.ts)|0}ms`;
+  b.className='v sm '+(stale?'r':BOOK.gaps?'a':'g');
+  $('c0r').textContent=SIM.evRate+' ev/s ingested';
+  $('c1r').textContent=fps.toFixed(1)+' fps';
+  const c0=$('c0s');c0.textContent=stale?'● STALE':'● OK';c0.className='cd-s'+(stale?' bad':'');
+  $('c0m').style.width=stale?'18%':'100%';$('c0m').style.background=stale?'var(--r)':'var(--c)';
+}
+function renderL1(){
+  const now=SIM.now,imb=bookImb(IMB_LV),i1=bookImb(1);
+  const sprd=BOOK.ba-BOOK.bb,sb=BOOK.mid?sprd/BOOK.mid*10000:0;
+  $('mid').textContent=BOOK.mid.toFixed(3);
+  $('sprd').textContent=sprd.toFixed(2);$('sprdb').textContent=sb.toFixed(2)+' bps';
+  $('bbo').innerHTML=`<span class="g">${BOOK.bb.toFixed(2)}</span><span class="m">/</span><span class="r">${BOOK.ba.toFixed(2)}</span>`;
+  const set=(id,v,c)=>{const e=$(id);e.textContent=sgn(v)+Math.abs(v).toFixed(3);e.className='vv '+c;};
+  set('imb0',i1.v,cls(i1.v));
+  set('imb5',tob.imbMean(now-5000,now),cls(tob.imbMean(now-5000,now)));
+  set('imb30',tob.imbMean(now-30000,now),cls(tob.imbMean(now-30000,now)));
+  set('imb10',imb.v,cls(imb.v));
+
+  let mx=0;const A=BOOK.asks.slice(0,LADDER_N).reverse(),B=BOOK.bids.slice(0,LADDER_N);
+  for(const l of A)mx=Math.max(mx,sq('a',l.p,l.q));
+  for(const l of B)mx=Math.max(mx,sq('b',l.p,l.q));
+  const ws=new Set();
+  for(const w of walls.top('bid',3,now))ws.add('bid'+w.p.toFixed(2));
+  for(const w of walls.top('ask',3,now))ws.add('ask'+w.p.toFixed(2));
+  const rows=[];
+  for(const l of A){const q=SM.get('a'+l.p.toFixed(2))||l.q;
+    rows.push(`<div class="lr a"><div class="bar" style="width:${(q/mx*100).toFixed(1)}%"></div><span class="wm">${ws.has('ask'+l.p.toFixed(2))?'██':''}</span><span class="pp r">${l.p.toFixed(2)}</span><span class="qq">${q.toFixed(1)}</span></div>`);}
+  rows.push(`<div class="lsep"><span>${sprd.toFixed(2)} · ${sb.toFixed(2)} bps</span><span>${fmtN(imb.b)} / ${fmtN(imb.a)}</span></div>`);
+  for(const l of B){const q=SM.get('b'+l.p.toFixed(2))||l.q;
+    rows.push(`<div class="lr b"><div class="bar" style="width:${(q/mx*100).toFixed(1)}%"></div><span class="pp g">${l.p.toFixed(2)}</span><span class="qq">${q.toFixed(1)}</span><span class="wm">${ws.has('bid'+l.p.toFixed(2))?'██':''}</span></div>`);}
+  $('ladder').innerHTML=rows.join('');
+
+  const tv=rawTrades.snapshot(now).slice(-15).reverse();let run=0;
+  $('tape').innerHTML=tv.map(t=>{run+=t.signedQuantity;const b=t.signedQuantity>0;
+    return `<div class="tr"><span class="t1">${hhmmss(t.timestamp)}</span><span class="t2 ${b?'g':'r'}">${b?'▲':'▼'}</span><span class="t3 ${b?'g':'r'}">${t.price.toFixed(2)}</span><span class="t4">${t.quantity.toFixed(2)}</span><span class="t5 ${cls(run)}">${sgn(run)}${fmtN(Math.abs(run))}</span></div>`;}).join('')||'<div class="tr m">awaiting trades…</div>';
+
+  const c1=$('c1s');c1.textContent='● '+fps.toFixed(0)+' fps';
+  renderTop();renderRisk();
+}
+function renderMatrix(){
+  const now=SIM.now;
+  const tb=$('mx').querySelector('tbody');
+  tb.innerHTML=FLOW_WINDOWS.map(w=>{
+    const m=w.ms===5000?Signal.st?.w5:w.ms===30000?Signal.st?.w30:w.ms===120000?Signal.st?.w2m:Signal.st?.w5m;
+    if(!m)return '';
+    const read=Math.abs(m.ofi)<0.12?'balanced':m.ofi>0.4?'strong bid':m.ofi>0?'bid lean':m.ofi<-0.4?'strong ask':'ask lean';
+    return `<tr class="${w.ms===300000?'hi':''}">
+      <td>${w.label} <span class="m">${w.role}</span></td>
+      <td class="m">${m.src}</td>
+      <td class="d">${m.n.toLocaleString()}</td>
+      <td class="${cls(m.ofi)}"><span class="sg2">${m.ofi>0.12?'▲':m.ofi<-0.12?'▼':'·'}</span>${sgn(m.ofi)}${Math.abs(m.ofi).toFixed(2)}</td>
+      <td class="${cls(m.cvd)}">${sgn(m.cvd)}${fmtN(Math.abs(m.cvd))}</td>
+      <td class="${m.buyPct>50?'g':'r'}">${m.buyPct.toFixed(0)}%</td>
+      <td class="${cls(m.dispBps)}">${m.dispBps==null?'—':sgn(m.dispBps)+Math.abs(m.dispBps).toFixed(1)}</td>
+      <td class="d">${m.rv.toFixed(0)}</td>
+      <td class="${m.eff>0.55?'c':m.eff<0.2?'a':'d'}">${m.eff==null?'—':m.eff.toFixed(2)}</td>
+      <td class="d">${(m.fill*100).toFixed(0)}%</td>
+      <td class="d">${read}</td></tr>`;}).join('');
+  const v=verdictText(Signal.st.w5,Signal.st.w30,Signal.st.w2m,Signal.st.w5m);
+  $('verd').innerHTML=`<span class="${v.tag}" style="font-weight:700;letter-spacing:.8px">${v.short}</span><br><span class="d">${v.long}</span>`;
+  $('abWin').textContent=(CFG.absWinMs/1000)+' s';$('abNeed').textContent=CFG.absNeed;
+  const ab=Signal.st.abs,cd=absorb.cand;
+  let h='';
+  if(ab)h=`<div class="ev"><span class="dot" style="background:var(--${ab.dir>0?'g':'r'})"></span><span class="et"><b>CONFIRMED</b> ${ab.dir>0?'bullish — aggressive selling met persistent bid, price did not break down':'bearish — aggressive buying met persistent ask, price did not break up'} @ ${ab.price.toFixed(2)}</span><span class="es">${ab.hits} win · ${((ab.expires-SIM.now)/1000).toFixed(0)}s</span></div>`;
+  else if(cd)h=`<div class="ev"><span class="dot" style="background:var(--a)"></span><span class="et">candidate ${cd.dir>0?'bullish':'bearish'} absorption — labelled CANDIDATE, not confirmed</span><span class="es">${cd.hits}/${CFG.absNeed}</span></div>
+    <div class="meter" style="height:6px"><i style="width:${(cd.hits/CFG.absNeed*100).toFixed(0)}%;background:var(--a)"></i></div>`;
+  else h=`<div class="ev"><span class="dot" style="background:var(--mute)"></span><span class="et m">no candidate — flow and displacement are consistent</span><span class="es">window ${CFG.absWinMs/1000}s</span></div>`;
+  $('absBox').innerHTML=h;
+
+  const bw=walls.top('bid',2,now),aw=walls.top('ask',2,now);
+  const line=w=>`${w.p.toFixed(2)} · peak ${w.peak.toFixed(0)} · life ${w.life.toFixed(0)}s · pers ${(w.pers*100).toFixed(0)}% · repl ${w.replen} · <span class="${w.state==='CONSUMED'?'r':w.state==='GONE'?'a':'g'}">${w.state}</span>`;
+  $('persBox').innerHTML=
+    `<div class="kv"><span class="kk">bid (persisted)</span><span class="vv d" style="font-weight:400">${bw.length?line(bw[0]):'none ≥110 SOL'}</span></div>`+
+    `<div class="kv"><span class="kk">ask (persisted)</span><span class="vv d" style="font-weight:400">${aw.length?line(aw[0]):'none ≥110 SOL'}</span></div>`+
+    `<div class="kv"><span class="kk">current-only levels</span><span class="vv d" style="font-weight:400">rendered without the pale core in the heatmap</span></div>`;
+
+  const w5m=Signal.st.w5m;
+  $('c2r').textContent=(w5m.fill*100).toFixed(0)+'% of 5m';
+  $('c2m').style.width=(w5m.fill*100)+'%';
+  const c2=$('c2s');c2.textContent=w5m.fill>0.97?'● COMPLETE':'● FILLING';c2.className='cd-s'+(w5m.fill>0.97?'':' bad');
+
+  const pr=w=>w.peak.toFixed(0)+' · '+w.life.toFixed(0)+'s · '+(w.pers*100).toFixed(0)+'% · '+w.state;
+  $('persBid').innerHTML=walls.top('bid',4,now).map(w=>`<div class="kv"><span class="kk g">${w.p.toFixed(2)}</span><span class="vv d" style="font-weight:400">${pr(w)}</span></div>`).join('')||'<div class="kv m"><span class="kk">no persistent bid level ≥110 SOL</span><span class="vv">—</span></div>';
+  $('persAsk').innerHTML=walls.top('ask',4,now).map(w=>`<div class="kv"><span class="kk r">${w.p.toFixed(2)}</span><span class="vv d" style="font-weight:400">${pr(w)}</span></div>`).join('')||'<div class="kv m"><span class="kk">no persistent ask level ≥110 SOL</span><span class="vv">—</span></div>';
+}
+function renderStructure(){
+  const now=SIM.now;
+  const roles={m1:['1m','ENTRY TRIGGER · forming preview + closed'],m3:['3m','LOCAL SETUP'],m5:['5m','LOCAL SETUP / SWEEPS'],
+    m15:['15m','CONFIRMATION'],h1:['1h','CONTEXT · closed candle only'],h4:['4h','OPTIONAL SWING FILTER'+(CFG.use4h?' · BLOCKING':' · non-blocking')]};
+  const order=['m1','m3','m5','m15','h1','h4'];
+  $('structBox').innerHTML=order.map(k=>{
+    const a=analyze(C[k],now),rl=roles[k];
+    const cl=a.lastC,f=a.cur;
+    const biasC=a.bias>0?'g':a.bias<0?'r':'d';
+    const sparkC=(a.ok?C[k].closed.slice(-24):[]);
+    const spark=sparkC.length?(()=>{
+      const hi=Math.max(...sparkC.map(c=>c.h)),lo=Math.min(...sparkC.map(c=>c.l)),rg=hi-lo||1;
+      return `<div class="spark">${sparkC.map(c=>{
+        const up=c.c>=c.o;const hgt=Math.max(2,((c.h-c.l)/rg)*26);
+        return `<i style="height:${hgt}px;background:${up?'rgba(63,224,140,.55)':'rgba(255,93,120,.55)'}"></i>`;}).join('')}</div>`;
+    })():'';
+    return `<div class="tf">
+      <div class="tf-h"><span class="tf-n">${rl[0]} <span class="tf-role">${rl[1]}</span></span>
+        <span class="${biasC}" style="font-size:10px;font-weight:700">${a.ok?a.trend:'SEEDING'}</span></div>
+      ${a.ok?`
+      <div class="tf-b"><span class="x">last CLOSED</span><span class="y ${cl.c>=cl.o?'g':'r'}">${cl.o.toFixed(2)} → ${cl.c.toFixed(2)} <span class="m">(H ${cl.h.toFixed(2)} / L ${cl.l.toFixed(2)})</span></span></div>
+      <div class="tf-b"><span class="x">forming (unconfirmed)</span><span class="y d">${f?f.o.toFixed(2)+' → '+f.c.toFixed(2)+' · '+(a.progress*100).toFixed(0)+'%':'—'}</span></div>
+      <div class="tf-b"><span class="x">swing pattern</span><span class="y">${a.pattern}</span></div>
+      ${a.bos?`<div class="tf-b"><span class="x">break of structure</span><span class="y ${a.bos.dir>0?'g':'r'}">BOS ${a.bos.dir>0?'↑':'↓'} ${a.bos.at.toFixed(2)}</span></div>`:''}
+      ${a.sweeps.length?`<div class="tf-b"><span class="x">sweep candidate</span><span class="y p">${a.sweeps[a.sweeps.length-1].type} @ ${a.sweeps[a.sweeps.length-1].p.toFixed(2)}</span></div>`:''}
+      <div class="tf-b"><span class="x">close vs SMA(10)</span><span class="y ${cl.c>a.sma?'g':'r'}">${cl.c.toFixed(2)} vs ${a.sma.toFixed(2)} · ${cl.c>a.sma?'ABOVE':'BELOW'}</span></div>
+      ${a.zones.length?`<div class="tf-b"><span class="x">unswept liquidity</span><span class="y d">${a.zones.map(z=>`${z.type} ${z.p.toFixed(2)} (${sgn(z.d)}${Math.abs(z.d).toFixed(2)}%)`).join(' · ')}</span></div>`:''}
+      ${spark}`:`<div class="tf-b"><span class="x">closed candles</span><span class="y d">${a.n} — need ≥8</span></div>`}
+    </div>`;}).join('');
+  $('c3r').textContent=(C.m1.progress(now)*100).toFixed(0)+'% of 1m';
+  $('c3m').style.width=(C.m1.progress(now)*100)+'%';
+  const c3=$('c3s');const ok=C.h1.closed.length>=8;
+  c3.textContent=ok?`● ${C.m1.closed.length}/${C.m5.closed.length}/${C.h1.closed.length}/${C.h4.closed.length} closed`:'● SEEDING';
+  c3.className='cd-s'+(ok?'':' bad');
+  $('stBr').textContent=`1m ${C.m1.closed.length} · 3m ${C.m3.closed.length} · 5m ${C.m5.closed.length} · 15m ${C.m15.closed.length} · 1h ${C.h1.closed.length} · 4h ${C.h4.closed.length} closed`;
+}
+function renderSignal(){
+  const now=SIM.now,p=Signal.pts,col=p>=CFG.entryPts?'g':p<=-CFG.entryPts?'r':'a';
+  const sc=Signal.state==='LONG'?'g':Signal.state==='SHORT'?'r':'a';
+  const sv=$('sigState');sv.textContent=Signal.state;sv.className='sv '+sc;
+  $('sigBox').style.borderColor=`var(--${sc})`;
+  $('sigSub').textContent=Signal.state==='NO_TRADE'
+    ?(Signal.st&&Signal.st.stale?'frozen — data-integrity interlock':Signal.pendHits>0?`candidate held ${Signal.pendHits}/${CFG.persistSec} s`:'insufficient confluence')
+    :`held above exit threshold (${CFG.exitPts} pts)`;
+  const pe=$('sigPts');pe.textContent=sgn(p)+Math.abs(p).toFixed(1);pe.className='pv '+cls(p);
+  $('sigPtsM').textContent=`of ±${CFG.maxPts} · entry ≥${CFG.entryPts} · exit ≤${CFG.exitPts}`;
+  $('pMk').style.left=((p+CFG.maxPts)/(CFG.maxPts*2)*100).toFixed(1)+'%';
+  $('sigAge').textContent=`state age ${Signal.age(now).toFixed(0)} s`;
+  $('sigChg').textContent=hhmmss(Signal.lastChange)+` (${Signal.age(now).toFixed(0)} s ago)`;
+  const stale=Signal.st?Signal.st.stale:true;
+  const sf=$('sigFresh');sf.textContent=stale?`✕ STALE ${(now-BOOK.ts)|0} ms`:`● fresh ${(now-BOOK.ts)|0} ms`;
+  sf.className='vv '+(stale?'r':'g');
+
+  $('ledger').innerHTML=Signal.ledger.map(l=>{
+    const pc=l.pts>0?'g':l.pts<0?'r':'d';
+    const w=Math.abs(l.pts)/l.max*50;
+    return `<div class="cp"><span class="cn">${l.n}<br><span class="m" style="font-size:9px">${l.note}</span></span>
+      <span class="cd2 ${pc}">${sgn(l.pts)}${Math.abs(l.pts).toFixed(1)}</span>
+      <span class="cw"><span style="display:inline-block;width:44px;height:7px;background:#080c11;border:1px solid var(--bd);position:relative;vertical-align:middle">
+        <span style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--bd2)"></span>
+        <span style="position:absolute;top:0;bottom:0;left:${l.pts>=0?50:50-w}%;width:${w}%;background:var(--${l.pts>=0?'g':'r'})"></span></span> /${l.max}</span></div>`;}).join('');
+  $('gates').innerHTML=Signal.gates.map(g=>
+    `<div class="kv"><span class="kk">${g.ok?'<span class="g">✓</span>':'<span class="r">✕</span>'} ${g.n}</span><span class="vv d" style="font-weight:400">${g.note}</span></div>`).join('');
+  $('evid').innerHTML=(Signal.reasons.length?Signal.reasons:[{c:'d',t:'no evidence',s:''}]).map(r=>
+    `<div class="ev"><span class="dot" style="background:var(--${r.c})"></span><span class="et">${r.t}</span><span class="es">${r.s}</span></div>`).join('');
+}
+function renderExec(){
+  const now=SIM.now;Exec.compute(now);const a=Exec.a,e=Exec.e;
+  $('xBa').textContent=a.bb.toFixed(2)+' / '+a.ba.toFixed(2);
+  $('xSprd').textContent=fmt(a.sprdBps,2)+' bps';
+  $('xAge').textContent=(a.age|0)+' ms sim';
+  $('xGap').textContent=a.gaps;a.gaps>0?$('xGap').className='vv a':$('xGap').className='vv d';
+  $('xLv').textContent=e.levels+(e.unfilled>0.001?` · ${e.unfilled.toFixed(2)} UNFILLED`:'');
+  $('xLv').className='vv '+(e.unfilled>0.001?'r':'d');
+  $('xVwap').textContent=e.vwap==null?'—':e.vwap.toFixed(4);
+  const sl=$('xSlip');sl.textContent=fmt(e.slip,2)+' bps';sl.className='vv '+(e.slip>4?'r':e.slip>2?'a':'g');
+  $('xFee').textContent=`${fmt(e.half,2)} + ${fmt(e.fee*2,2)} bps`;
+  const tt=$('xTot');tt.textContent=fmt(e.total,2)+' bps · $'+(e.total/10000*BOOK.mid*e.size).toFixed(3);
+  tt.className='vv '+(e.total>8?'r':e.total>4?'a':'g');
+  const bud=e.rngBps?(e.total/e.rngBps*100):null;
+  const be=$('xBud');be.textContent=bud==null?'—':`${bud.toFixed(1)}% of 5m range (${fmt(e.rngBps,0)} bps)`;
+  be.className='vv '+(bud>35?'r':bud>15?'a':'g');
+  const st=$('xStat');
+  if(e.unfilled>0.001){st.className='breach';st.textContent='✕ INSUFFICIENT DISPLAYED DEPTH for this size';}
+  else if(e.total<4){st.className='okb';st.innerHTML='<span class="g">✓ EXECUTABLE</span> <span class="d">— estimate inside budget</span>';}
+  else if(e.total<8){st.className='okb';st.innerHTML='<span class="a">⚠ ELEVATED</span> <span class="d">— split or use passive entry</span>';}
+  else{st.className='breach';st.textContent='✕ COST CONSUMES THE SETUP EDGE';}
+}
+function renderRisk(){
+  const now=SIM.now;
+  const pe=$('rkPos');pe.textContent=Risk.pos||'FLAT';
+  pe.className='vv '+(Risk.pos==='LONG'?'g':Risk.pos==='SHORT'?'r':'d');
+  $('rkEntry').textContent=Risk.entry==null?'—':Risk.entry.toFixed(2);
+  $('rkInv').textContent=Signal.inv==null?'—':Signal.inv.toFixed(2)+' (wall / 5m swing)';
+  $('rkStop').textContent=Risk.stop==null?'—':Risk.stop.toFixed(2);
+  let dist=null,pct=0;
+  if(Risk.pos&&Risk.stop!=null){
+    dist=Math.abs(BOOK.mid-Risk.stop)/BOOK.mid*10000;
+    const full=Math.abs(Risk.entry-Risk.stop)/Risk.entry*10000;
+    pct=clamp(dist/Math.max(0.01,full)*100,0,100);
+  }
+  $('rkDist').textContent=dist==null?'—':dist.toFixed(1)+' bps';
+  $('rkBar').style.width=pct+'%';$('rkMk').style.left=pct+'%';
+  if(Risk.pos){
+    const pnl=(BOOK.mid-Risk.entry)/Risk.entry*10000*Risk.dir;
+    const e=$('rkPnl');e.textContent=sgn(pnl)+Math.abs(pnl).toFixed(1)+' bps';e.className='v sm '+cls(pnl);
+    $('rkMae').textContent=Risk.mae.toFixed(1)+' bps';
+  }else{$('rkPnl').textContent='—';$('rkMae').textContent='—';}
+  const rs=$('rkState'),rb=$('riskBox');
+  if(Risk.breach){rs.className='breach';rs.textContent='⚠ BREACH — immediate exit executed';rb.classList.add('alarm');}
+  else if(!Risk.pos){rs.className='okb';rs.textContent='● IDLE — no paper position';rb.classList.remove('alarm');}
+  else{rs.className='okb';rs.innerHTML=`<span class="g">● MONITORING ${Risk.pos}</span> <span class="d">— ${dist.toFixed(1)} bps to stop</span>`;rb.classList.remove('alarm');}
+  const fz=$('rkFreeze');fz.textContent=Risk.frozen?'FROZEN':'ENABLED';fz.className='vv '+(Risk.frozen?'r':'g');
+  $('rkWhy').textContent=Risk.why;
+}
+
+/* ── heatmap ─────────────────────────────────────────────────────── */
+const hCv=$('heat'),oCv=$('ovl');const hCx=hCv.getContext('2d'),oCx=oCv.getContext('2d');
+let hCache=null,hCacheT=0;
+function drawHeat(now){
+  const span=VIEW_SPAN[CFG.heatView];
+  const colSpan=span/HEAT.cols;
+  if(!hCache||now-hCacheT>900||hCache.span!==colSpan){hCache={...heat.bucket(colSpan,now),span:colSpan};hCacheT=now;}
+  const{cols,from,to,norm}=hCache;
+  const rows=140;
+  if(hCv.width!==HEAT.cols||hCv.height!==rows){hCv.width=HEAT.cols;hCv.height=rows;}
+  const img=hCx.createImageData(HEAT.cols,rows),d=img.data;
+  const nz=Array.from(norm).filter(v=>v>0).sort((a,b)=>a-b);
+  const ceil=nz.length?nz[Math.floor(nz.length*0.95)]:1;
+  const tpr=CFG.zoom, rs=Math.floor(heat.n/tpr);
+  const cTick=clamp(Math.round((BOOK.mid-(heat.anchor-(heat.n/2)*HEAT.step))/HEAT.step),0,heat.n-1);
+  const topT=clamp(cTick+Math.floor(rows/2)*tpr,0,heat.n-1);
+  for(let ci=0;ci<HEAT.cols;ci++){
+    const c=cols[ci];
+    for(let ri=0;ri<rows;ri++){
+      const ti=topT-ri*tpr,o=(ri*HEAT.cols+ci)*4;
+      if(!c||ti<0||ti>=heat.n){d[o]=4;d[o+1]=6;d[o+2]=10;d[o+3]=255;continue;}
+      const bi=ti*2,ai=ti*2+1;
+      const bq=c.q[bi],aq=c.q[ai],bp=c.ps[bi],ap=c.ps[ai];
+      const gi=Math.pow(clamp(bq/ceil,0,1),0.6),ri2=Math.pow(clamp(aq/ceil,0,1),0.6);
+      const bPer=bp>=CFG.persMinObs,aPer=ap>=CFG.persMinObs;
+      let R=4+ri2*245,G=6+gi*218,B=10+gi*80+ri2*28;
+      if(bPer){G=Math.min(255,G+40);B=Math.min(255,B+70);R=Math.min(255,R*0.75+40);}
+      if(aPer){R=Math.min(255,R+30);G=Math.min(255,G*0.7+70);B=Math.min(255,B+80);}
+      d[o]=R;d[o+1]=G;d[o+2]=B;d[o+3]=255;
+    }
+  }
+  hCx.putImageData(img,0,0);
+
+  const rect=hCv.parentElement.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  oCv.width=rect.width*dpr;oCv.height=rect.height*dpr;oCx.setTransform(dpr,0,0,dpr,0,0);
+  oCx.clearRect(0,0,rect.width,rect.height);
+  const W=rect.width,H=rect.height;
+  const base=heat.anchor-(heat.n/2)*HEAT.step;
+  const rowOf=p=>(topT-(p-base)/HEAT.step)/tpr;
+  const priceAt=ri=>base+(topT-ri*tpr)*HEAT.step;
+
+  oCx.beginPath();oCx.lineWidth=1.6;oCx.strokeStyle='rgba(232,238,244,.92)';
+  let st=false;
+  for(let ci=0;ci<HEAT.cols;ci++){const c=cols[ci];if(!c||!c.n){st=false;continue;}
+    const x=(ci+0.5)/HEAT.cols*W,y=rowOf(c.mid)/rows*H;
+    if(!st){oCx.moveTo(x,y);st=true;}else oCx.lineTo(x,y);}
+  oCx.stroke();oCx.lineWidth=5;oCx.strokeStyle='rgba(63,216,255,.12)';oCx.stroke();
+
+  for(const side of['bid','ask'])for(const w of walls.top(side,4,now)){
+    if(w.life<30)continue;
+    const y=rowOf(w.p)/rows*H;if(y<0||y>H)continue;
+    oCx.beginPath();oCx.moveTo(0,y);oCx.lineTo(W,y);oCx.setLineDash([5,5]);oCx.lineWidth=1;
+    oCx.strokeStyle=w.state==='CONSUMED'?'rgba(255,180,40,.8)':'rgba(181,140,255,.72)';oCx.stroke();oCx.setLineDash([]);
+    oCx.font='9px JetBrains Mono';oCx.fillStyle='rgba(181,140,255,.95)';
+    oCx.fillText(`${side.toUpperCase()} ${w.p.toFixed(2)} · ${w.life.toFixed(0)}s · pers ${(w.pers*100).toFixed(0)}% · ${w.state}`,6,y-3);
+  }
+
+  const tv=rawTrades.snapshot(now),bw=colSpan*2;
+  for(let ci=0;ci<HEAT.cols;ci++){
+    const t0=from+ci*colSpan;let v=0,net=0;
+    for(const t of tv)if(t.timestamp>=t0&&t.timestamp<t0+bw){v+=t.quantity;net+=t.signedQuantity;}
+    if(v<=0)continue;const c=cols[ci];if(!c)continue;
+    const x=(ci+0.5)/HEAT.cols*W,y=rowOf(c.mid)/rows*H,rad=clamp(Math.sqrt(v)*0.85,2,12);
+    oCx.beginPath();oCx.arc(x,y,rad,0,Math.PI*2);
+    oCx.fillStyle=net>=0?'rgba(255,180,40,.2)':'rgba(255,93,120,.2)';oCx.fill();
+    oCx.lineWidth=1;oCx.strokeStyle=net>=0?'rgba(255,180,40,.55)':'rgba(255,93,120,.55)';oCx.stroke();
+  }
+
+  // live book profile silhouette on right edge
+  const prof=[];
+  for(const l of BOOK.bids.slice(0,40))prof.push({p:l.p,q:l.q,s:'b'});
+  for(const l of BOOK.asks.slice(0,40))prof.push({p:l.p,q:l.q,s:'a'});
+  const pq=Math.max(...prof.map(x=>x.q),1),pw=W*0.11;
+  for(const x of prof){
+    const y=rowOf(x.p)/rows*H;if(y<0||y>H)continue;
+    const w2=x.q/pq*pw;
+    oCx.fillStyle=x.s==='b'?'rgba(63,216,255,.32)':'rgba(255,140,170,.32)';
+    oCx.fillRect(W-w2,y-Math.max(1,H/rows/2),w2,Math.max(1.4,H/rows));
+  }
+  oCx.strokeStyle='rgba(63,216,255,.35)';oCx.lineWidth=1;oCx.beginPath();oCx.moveTo(W-pw,0);oCx.lineTo(W-pw,H);oCx.stroke();
+
+  oCx.font='9px JetBrains Mono';oCx.textAlign='right';
+  for(let i=0;i<=5;i++){
+    const ri=Math.floor(i/5*(rows-1)),p=priceAt(ri),y=ri/rows*H;
+    oCx.fillStyle='rgba(75,89,103,.95)';oCx.fillText(p.toFixed(2),W-pw-5,y+(i===0?9:-2));
+    oCx.beginPath();oCx.moveTo(W-pw-40,y);oCx.lineTo(W-pw-4,y);oCx.strokeStyle='rgba(24,34,45,.85)';oCx.stroke();
+  }
+  oCx.textAlign='center';oCx.fillStyle='rgba(75,89,103,.95)';
+  for(let i=0;i<=4;i++){const t=from+(to-from)*i/4;oCx.fillText(hhmmss(t),W*i/4,H-4);}
+  const my=rowOf(BOOK.mid)/rows*H;
+  oCx.beginPath();oCx.setLineDash([2,3]);oCx.moveTo(0,my);oCx.lineTo(W,my);
+  oCx.strokeStyle='rgba(63,216,255,.5)';oCx.lineWidth=1;oCx.stroke();oCx.setLineDash([]);
+  oCx.textAlign='left';oCx.fillStyle='rgba(63,216,255,.95)';oCx.fillText('◂ '+BOOK.mid.toFixed(2),4,my-3);
+
+  $('hmNote').innerHTML=`norm p95 ${ceil.toFixed(0)} SOL/level · col ${(colSpan>=1000?(colSpan/1000)+' s':colSpan+' ms')} · span ${(span/60000).toFixed(0)} min · ${heat.cols.length} stored snapshots`;
+  $('hmTag').textContent=`${CFG.heatView} view · ${HEAT.cols} cols · grid ${HEAT.step} · zoom ${CFG.zoom} tick/row · persisted core ≥${CFG.persMinObs} obs`;
+  $('persMin').textContent=CFG.persMinObs;
+}
+
+/* ══ 10. LOOPS ═══════════════════════════════════════════════════════ */
+let lastReal=performance.now(),evT=performance.now(),evN=0;
+function ingest(){
+  const n=performance.now(),dt=Math.min(500,n-lastReal);lastReal=n;
+  if(!CFG.paused)Feed.step(dt);
+  absorb.evaluate(SIM.now,rawTrades.snapshot(SIM.now),walls,()=>BOOK.mid);
+  Risk.check(SIM.now);           // immediate path — never throttled
+  if(n-evT>=1000){SIM.evRate=SIM.evCount-evN;evN=SIM.evCount;evT=n;}
+}
+let lastHeat=0;
+function render250(){
+  const n=performance.now();frames++;
+  if(n-fpsT>=1000){fps=frames/((n-fpsT)/1000);frames=0;fpsT=n;}
+  renderL1();
+  if(n-lastHeat>240){drawHeat(SIM.now);lastHeat=n;}
+}
+function evalSecond(){
+  if(CFG.paused||!Signal.st&&!buckets.order.length)return;
+  Signal.eval(SIM.now);Exec.compute(SIM.now);
+  renderMatrix();renderSignal();renderExec();renderStructure();Log.render();
+  if(absorb.confirmed&&Log.seenAbs!==absorb.confirmed.at){
+    Log.seenAbs=absorb.confirmed.at;
+    Log.push('absorb',`absorption <b>CONFIRMED</b> ${absorb.confirmed.dir>0?'bullish (sell-side absorbed by persistent bid)':'bearish (buy-side absorbed by persistent ask)'} @ <b>${absorb.confirmed.price.toFixed(2)}</b> after ${absorb.confirmed.hits} consecutive ${CFG.absWinMs/1000} s windows`);
+  }
+}
+/* structure close hooks → event log */
+C.m1.onClose=c=>{if(Math.abs(c.c-c.o)/c.o>0.0008)Log.push('struct',`1m candle CLOSED <b>${c.c>=c.o?'GREEN':'RED'}</b> ${c.o.toFixed(2)}→${c.c.toFixed(2)} · range ${(c.h-c.l).toFixed(2)}`);};
+C.m5.onClose=c=>{const a=analyze(C.m5,SIM.now);Log.push('struct',`5m candle CLOSED <b>${c.c>=c.o?'GREEN':'RED'}</b> ${c.o.toFixed(2)}→${c.c.toFixed(2)} · structure now <b>${a.ok?a.trend:'—'}</b> (${a.pattern||'—'})${a.bos?` · BOS ${a.bos.dir>0?'↑':'↓'} ${a.bos.at.toFixed(2)}`:''}`);};
+C.h1.onClose=c=>{const a=analyze(C.h1,SIM.now);Log.push('struct',`1h candle CLOSED <b>${c.c>=c.o?'GREEN':'RED'}</b> ${c.o.toFixed(2)}→${c.c.toFixed(2)} · HTF context updated → <b>${a.ok?a.trend:'—'}</b>`);};
+C.h4.onClose=c=>{const a=analyze(C.h4,SIM.now);Log.push('struct',`4h candle CLOSED <b>${c.c>=c.o?'GREEN':'RED'}</b> ${c.o.toFixed(2)}→${c.c.toFixed(2)} · swing filter ${CFG.use4h?'BLOCKING':'optional'} → <b>${a.ok?a.trend:'—'}</b>`);};
+
+/* ══ 11. UI ══════════════════════════════════════════════════════════ */
+document.querySelectorAll('#viewBar button').forEach(b=>b.onclick=()=>{
+  CFG.heatView=b.dataset.v;hCache=null;
+  document.querySelectorAll('#viewBar button').forEach(x=>x.classList.toggle('on',x===b));});
+$('tSmooth').onclick=function(){CFG.smoothing=!CFG.smoothing;this.classList.toggle('on',CFG.smoothing);this.querySelector('i').textContent=CFG.smoothing?'x':'';SM.clear();};
+$('t4h').onclick=function(){CFG.use4h=!CFG.use4h;this.classList.toggle('on',CFG.use4h);this.querySelector('i').textContent=CFG.use4h?'x':'';
+  Log.push('sys',`4h swing filter → <b>${CFG.use4h?'BLOCKING':'optional / non-blocking'}</b>`);};
+$('tCT').onclick=function(){CFG.countertrend=!CFG.countertrend;this.classList.toggle('on',CFG.countertrend);this.querySelector('i').textContent=CFG.countertrend?'x':'';
+  Log.push('sys',`countertrend vs 1h context → <b>${CFG.countertrend?'ALLOWED':'BLOCKED'}</b>`);};
+['inSize','inFee','inSide'].forEach(id=>$(id).addEventListener('input',()=>Exec.compute(SIM.now)));
+$('inPersist').addEventListener('input',e=>{CFG.persistSec=clamp(parseInt(e.target.value)||7,3,20);e.target.value=CFG.persistSec;
+  Log.push('sys',`micro-trigger persistence → <b>${CFG.persistSec} s</b> (unvalidated parameter — backtest before trusting)`);});
+function setSpeed(v){CFG.speed=clamp(v,1,600);}
+addEventListener('keydown',e=>{
+  if(['INPUT','SELECT'].includes(e.target.tagName))return;
+  const k=e.key.toLowerCase();
+  if(k==='1'){CFG.heatView='5m';hCache=null;}else if(k==='2'){CFG.heatView='30m';hCache=null;}
+  else if(k==='3'){CFG.heatView='2h';hCache=null;}
+  else if(k==='[')setSpeed(CFG.speed/2);else if(k===']')setSpeed(CFG.speed*2);
+  else if(k==='z'){CFG.zoom=CFG.zoom>=5?1:CFG.zoom*2;hCache=null;}
+  else if(k==='s')$('tSmooth').click();
+  else if(k==='4')$('t4h').click();
+  else if(k==='x')$('tCT').click();
+  else if(k==='f'){Feed.fault(15000);Log.push('fault','⛔ FEED FAULT INJECTED — depth/trade/kline emission suspended 15 s sim. Expect stale interlock, frozen entries, and unchanged risk monitoring.');}
+  else if(k===' '){CFG.paused=!CFG.paused;e.preventDefault();}
+  else if(k==='r')location.reload();
+  if(k>='1'&&k<='3')document.querySelectorAll('#viewBar button').forEach(b=>b.classList.toggle('on',b.dataset.v===CFG.heatView));
+});
+addEventListener('resize',()=>drawHeat(SIM.now));
+
+/* ══ 12. BOOT ════════════════════════════════════════════════════════ */
+(function boot(){
+  const t0=performance.now();
+  Feed.init(Date.now()-Math.floor(Date.now()/14400000)*14400000);   // align to a 4h boundary
+  Feed.coarse=true;
+  Log.push('sys','cockpit boot · collectors: 1 s trade buckets (8200) · raw ring 120 s · top-of-book ring 25 m @250 ms · depth store 1 s × 220 ticks × 2 h · candles 1m/3m/5m/15m/1h/4h');
+  const pre=Feed.preRoll(26);
+  Log.push('sys',`synthetic <b>26 h candle pre-roll</b> completed (structure seeding only — no trade or depth history in this range) · ends @ ${pre.endPrice.toFixed(2)}`);
+  Feed.coarse=false;
+  // full-fidelity warmup so 5s…5m windows, buckets and the 2h heat view are populated
+  const target=SIM.now+2*3600000+120000;
+  let guard=0;
+  while(SIM.now<target&&guard++<40000)Feed.step(1000/CFG.speed*4);
+  buckets.prune(SIM.now);
+  const ms=performance.now()-t0;
+  Log.push('sys',`warmup complete in ${ms.toFixed(0)} ms real · 2 h full-fidelity · ${heat.cols.length} depth snapshots · ${buckets.order.length} trade buckets · closed candles 1m ${C.m1.closed.length} / 5m ${C.m5.closed.length} / 15m ${C.m15.closed.length} / 1h ${C.h1.closed.length} / 4h ${C.h4.closed.length}`);
+  Log.push('sys',`resolution config: ingest depth 250 ms · render 250 ms (≈4 fps) · flow windows 5s/30s/2m/5m · trigger 1m · setup 3m/5m · confirm 15m · context 1h · optional filter 4h · decision eval 1 s · persistence ${CFG.persistSec} s`);
+
+  Exec.compute(SIM.now);Signal.eval(SIM.now);
+  renderL1();renderMatrix();renderStructure();renderSignal();renderExec();drawHeat(SIM.now);Log.render();
+  $('boot').style.display='none';
+
+  setInterval(ingest,100);       // L0 ingest + immediate risk path
+  setInterval(render250,250);    // L1 render throttle (~4 fps)
+  setInterval(evalSecond,1000);  // L2/L3 summarize + decision evaluation
+  setInterval(()=>{$('footStat').textContent=
+    `view ${CFG.heatView} · ingest ${SIM.evRate} ev/s · render ${fps.toFixed(1)} fps · decision 1 s · persist ${CFG.persistSec} s · abs win ${CFG.absWinMs/1000} s · 4h ${CFG.use4h?'BLOCKING':'optional'} · countertrend ${CFG.countertrend?'ON':'OFF'} · ${heat.cols.length} depth snaps`;},500);
+})();
+</script>
+</body>
+</html>
