@@ -191,14 +191,14 @@ input:focus,select:focus{outline:0;border-color:var(--c)}
     <div class="sg"><span class="k">Cockpit</span><span class="title">SOLUSDT ▸ MULTI-RESOLUTION LIQUIDITY</span></div>
     <div class="sg"><span class="k">Feed source</span><span class="v sm a">◈ SIM ADAPTER <span class="m">(binance ws: not connected)</span></span></div>
     <div class="sg"><span class="k">Mode</span><span class="v sm"><span class="pill a">PAPER</span></span></div>
-    <div class="sg grow"><span class="k">Sim clock</span><span class="v sm" id="clk">—</span></div>
+    <div class="sg grow"><span class="k" id="clkLbl">Sim clock</span><span class="v sm" id="clk">—</span></div>
     <div class="sg"><span class="k">Speed</span><span class="v sm" id="spd">30×</span></div>
     <div class="sg"><span class="k">Depth seq</span><span class="v sm" id="seq">0</span></div>
     <div class="sg"><span class="k">Ingest latency p50/p95</span><span class="v sm" id="latm">—</span></div>
     <div class="sg"><span class="k">Book integrity</span><span class="v sm" id="bkst">—</span></div>
   </div>
 
-  <div class="warn">
+  <div class="warn" id="dataProv">
     ⚠ <b>DATA PROVENANCE.</b> No Binance WebSocket is attached. Every trade, depth observation, wall, absorption event,
     latency sample and price below is produced by a local <b>synthetic feed adapter</b> (regime-driven). The adapter sits behind
     one normalization boundary (<code>Adapter.onTrade / onDepth / onBookTicker / onKline</code>) so it can be replaced by
@@ -812,6 +812,70 @@ const Adapter={
   },
   onKline(t,p){/* candles already fed by builder; hook for real kline stream */}
 };
+
+/* ════ REAL BINANCE BRIDGE ADAPTER (ws://localhost:8765) ════ */
+const BinanceWS={
+  ws:null,connected:false,reconnectAttempts:0,
+  connect(){
+    try{this.ws=new WebSocket('ws://localhost:8765');}catch(e){return;}
+    this.ws.onopen=()=>{
+      this.connected=true;this.reconnectAttempts=0;
+      $('spd').textContent='1× (LIVE)';
+      Log.push('sys','● CONNECTED to Binance Bridge · Real mainnet data active');
+      this.updateProvenance(true);
+    };
+    this.ws.onmessage=e=>{
+      try{this.routeMessage(JSON.parse(e.data));}catch(err){}
+    };
+    this.ws.onclose=()=>{
+      this.connected=false;this.updateProvenance(false);
+      $('spd').textContent=CFG.speed+'×';
+      Log.push('fault','✕ Binance Bridge disconnected · Pausing flow');
+      const d=Math.min(10000,1000*Math.pow(1.5,this.reconnectAttempts++));
+      setTimeout(()=>this.connect(),d);
+    };
+  },
+  routeMessage(m){
+    if(m.type==='trade'){
+      SIM.now=m.timestamp;BOOK.mid=m.price;
+      Adapter.onTrade(m);
+    }else if(m.type==='bookTicker'){
+      Adapter.onBookTicker({bb:m.bb,ba:m.ba,bids:[{p:m.bb,q:m.bestBidQty}],asks:[{p:m.ba,q:m.bestAskQty}],seq:BOOK.seq,ts:m.timestamp},m.timestamp);
+    }else if(m.type==='depth'){
+      const b=m.book;
+      BOOK.bids=b.bids;BOOK.asks=b.asks;BOOK.bb=b.bb;BOOK.ba=b.ba;BOOK.mid=b.mid;
+      BOOK.seq=b.seq;BOOK.ts=b.ts;BOOK.gaps=b.gaps;
+      Adapter.onDepth(BOOK,b.ts);
+    }else if(m.type==='kline'){
+      for(const cb of ALLC)cb.onPrice(m.timestamp,m.close);
+      Adapter.onKline(m.timestamp,m.close);
+    }
+  },
+  updateProvenance(isReal){
+    const el=document.querySelector('.top .sg:nth-child(2) .v');
+    if(el){
+      el.className='v sm '+(isReal?'g':'a');
+      el.innerHTML=isReal?'● REAL MAINNET <span class="m">(binance-sdk @ 100ms)</span>':'◈ SIM ADAPTER <span class="m">(binance ws: disconnected)</span>';
+    }
+    const lbl=$('clkLbl');
+    if(lbl)lbl.textContent=isReal?'Market clock (UTC)':'Sim clock';
+    const prov=$('dataProv');
+    if(prov){
+      if(isReal){
+        prov.style.borderColor='#1a5a3a';
+        prov.style.background='#071e13';
+        prov.style.color='var(--g)';
+        prov.innerHTML='● <b>DATA PROVENANCE: REAL MAINNET DATA ACTIVE.</b> Live Binance USDⓈ-M Futures feeds attached via <code>@nemesis-oss/binance-sdk</code> (<code>ws://localhost:8765</code>). Ingesting live <b>solusdt@depth@100ms</b> · <b>solusdt@aggTrade</b> · <b>solusdt@bookTicker</b> · <b>solusdt@kline_1m</b>. Sequence continuity strictly verified (<code>pu == prev_u</code>). Synthetic generator is suspended; all matrix metrics, order flow rings, depth levels, and absorption signals are computed from real exchange flow.';
+      }else{
+        prov.style.borderColor='#6b4d10';
+        prov.style.background='#241a04';
+        prov.style.color='var(--a)';
+        prov.innerHTML='⚠ <b>DATA PROVENANCE: SYNTHETIC FALLBACK.</b> Local Binance bridge at <code>ws://localhost:8765</code> is disconnected. Running on simulated feed adapter.';
+      }
+    }
+  }
+};
+setTimeout(()=>BinanceWS.connect(),500);
 function bookImb(lv){
   let b=0,a=0;
   for(let i=0;i<Math.min(lv,BOOK.bids.length);i++)b+=BOOK.bids[i].q;
@@ -1422,7 +1486,7 @@ function drawHeat(now){
 let lastReal=performance.now(),evT=performance.now(),evN=0;
 function ingest(){
   const n=performance.now(),dt=Math.min(500,n-lastReal);lastReal=n;
-  if(!CFG.paused)Feed.step(dt);
+  if(!CFG.paused&&!BinanceWS.connected)Feed.step(dt);
   absorb.evaluate(SIM.now,rawTrades.snapshot(SIM.now),walls,()=>BOOK.mid);
   Risk.check(SIM.now);           // immediate path — never throttled
   if(n-evT>=1000){SIM.evRate=SIM.evCount-evN;evN=SIM.evCount;evT=n;}
